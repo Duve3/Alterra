@@ -1,6 +1,6 @@
 ﻿# Alterra
 
-Alterra is a modular personal AI assistant platform. Phase 2 provides a text-only,
+Alterra is a modular personal AI assistant platform. Phase 3 provides a text-only,
 provider-neutral message → agent → policy → tool → result → agent loop.
 
 ```powershell
@@ -43,3 +43,10 @@ ALTERRA_POLICY_DENIED_TOOLS=["filesystem.delete"]
 ALTERRA_POLICY_CONFIRMATION_RISKS=["medium","high","critical"]
 ALTERRA_POLICY_RISK_OVERRIDES={"computer.open_application":"medium"}
 ```
+
+## Persistent memory
+
+The application composes a SQLite-backed memory service at `ALTERRA_DATABASE_PATH` (default:
+`data/alterra.db`). It is intentionally separate from sessions and does not automatically store
+conversation or model content. Call its explicit `create`, `get`, `search`, and `delete` API from
+a future controlled memory tool or trusted application workflow.

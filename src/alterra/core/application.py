@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from ..agent.runtime import AgentRuntime
+from ..memory.store import MemoryStore
 from ..tools.dispatcher import ToolDispatcher
 from ..tools.registry import ToolRegistry
 from .errors import AgentError, ToolNotFoundError
@@ -19,6 +20,7 @@ class AlterraApplication:
         dispatcher: ToolDispatcher,
         policy: Policy,
         confirmation_handler: ConfirmationHandler | None = None,
+        memory: MemoryStore | None = None,
         *,
         max_tool_rounds: int = 8,
     ):
@@ -27,11 +29,17 @@ class AlterraApplication:
         self._dispatcher = dispatcher
         self._policy = policy
         self._confirmation_handler = confirmation_handler or RejectingConfirmationHandler()
+        self._memory = memory
         self._max_tool_rounds = max_tool_rounds
         self._sessions: dict[str, Session] = {}
 
     def session(self, session_id: str) -> Session:
         return self._sessions.setdefault(session_id, Session(id=session_id))
+
+    @property
+    def memory(self) -> MemoryStore | None:
+        """The explicit persistent-memory service; application turns do not write to it implicitly."""
+        return self._memory
 
     async def handle_message(self, message: UserMessage) -> AssistantMessage:
         session = self.session(message.session_id)

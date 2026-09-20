@@ -13,6 +13,7 @@ from .core.config import Settings
 from .core.errors import ConfigurationError
 from .core.messages import UserMessage
 from .core.policy import ConfirmationHandler, DefaultPolicy, PolicyRequest
+from .memory import SQLiteMemoryStore
 from .tools.builtin import CalculatorTool, EchoTool, TimeTool
 from .tools.dispatcher import ToolDispatcher
 from .tools.registry import ToolRegistry
@@ -67,6 +68,7 @@ def build_application(
         ToolDispatcher(registry),
         policy,
         confirmation_handler,
+        SQLiteMemoryStore(settings.database_path),
         max_tool_rounds=settings.max_tool_rounds,
     )
 

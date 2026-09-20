@@ -2,9 +2,8 @@
 
 ## Current phase
 
-Phase 2 adds policy, permission decisions, user confirmations, and execution timeouts to the
-text-only foundation. Voice, memory, integrations, events, scheduling, MCP, and computer control
-are deliberately out of scope.
+Phase 3 adds an explicit SQLite-backed persistent-memory subsystem. Voice, integrations, events,
+scheduling, MCP, and computer control are deliberately out of scope.
 
 ## Boundaries and dependency direction
 
@@ -39,6 +38,7 @@ flowchart TD
 | `Tool` / `ToolContext` | `tools` | Capability definition and validated execution |
 | `ToolRegistry` / `ToolDispatcher` | `tools` | Availability and operational execution boundary |
 | `Policy`, `PolicyDecision`, `ConfirmationHandler` | `core` | Authorization outside the model |
+| `MemoryStore`, `MemoryRetriever` | `memory` | Explicit retained facts and retrieval |
 
 ## Adding extensions
 
@@ -55,6 +55,15 @@ policy, obtains confirmation if required, and then delegates execution to the di
 cannot bypass or override any of those steps. `DefaultPolicy` supports configured denied tools,
 risk overrides, and risk levels that require confirmation. The default non-interactive
 confirmation handler rejects requests; the CLI provides an explicit `y`/`yes` prompt.
+
+## Memory
+
+Persistent memory is distinct from temporary `Session` conversation history and current world
+state. `SQLiteMemoryStore` stores only records explicitly created through its API; it never writes
+conversation turns or model output automatically. Every record has content, source, scope,
+confidence, creator, timestamps, and arbitrary JSON metadata. `MemoryRetriever` provides simple
+case-insensitive text retrieval now; it can be replaced with a semantic implementation without
+changing Core or Agent contracts.
 
 ## Configuration and development
 

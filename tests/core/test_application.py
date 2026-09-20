@@ -5,6 +5,7 @@ from alterra.core.errors import ConfigurationError
 from alterra.core.messages import UserMessage
 from alterra.core.policy import RiskLevel, ToolPolicyMetadata
 from alterra.main import ConsoleConfirmationHandler, build_application
+from alterra.memory import SQLiteMemoryStore
 
 
 @pytest.mark.parametrize(("prompt", "expected"), [("What is 15 * 4?", "60"), ("Echo \"hello Alterra\"", "hello Alterra")])
@@ -40,3 +41,8 @@ async def test_console_confirmation_accepts_only_explicit_yes() -> None:
     )()
     assert await ConsoleConfirmationHandler(lambda _: "yes").confirm(request) is True
     assert await ConsoleConfirmationHandler(lambda _: "").confirm(request) is False
+
+
+def test_application_composes_explicit_memory_service(tmp_path) -> None:
+    application = build_application(Settings(model_provider="local", database_path=tmp_path / "memory.db"))
+    assert isinstance(application.memory, SQLiteMemoryStore)
