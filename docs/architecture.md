@@ -2,9 +2,9 @@
 
 ## Current phase
 
-Phase 1 provides a text CLI, session-scoped conversations, a provider-neutral model interface,
-and a complete tool-call loop. Voice, memory, integrations, events, scheduling, MCP, and
-computer control are deliberately out of scope.
+Phase 2 adds policy, permission decisions, user confirmations, and execution timeouts to the
+text-only foundation. Voice, memory, integrations, events, scheduling, MCP, and computer control
+are deliberately out of scope.
 
 ## Boundaries and dependency direction
 
@@ -18,7 +18,10 @@ flowchart TD
   Core --> Agent[AgentRuntime]
   Agent --> Model[Model provider]
   Model -->|ToolCall| Core
-  Core --> Dispatcher[ToolDispatcher]
+  Core --> Policy[Core policy]
+  Policy -->|allowed| Dispatcher[ToolDispatcher]
+  Policy -->|confirmation needed| UI[CLI / future client]
+  UI -->|approved| Dispatcher
   Dispatcher --> Registry[ToolRegistry]
   Registry --> Tool[Native tool]
   Tool -->|ToolResult| Core
@@ -35,6 +38,7 @@ flowchart TD
 | `Model` / `AgentResponse` | `agent` | Replaceable reasoning provider boundary |
 | `Tool` / `ToolContext` | `tools` | Capability definition and validated execution |
 | `ToolRegistry` / `ToolDispatcher` | `tools` | Availability and operational execution boundary |
+| `Policy`, `PolicyDecision`, `ConfirmationHandler` | `core` | Authorization outside the model |
 
 ## Adding extensions
 
@@ -42,6 +46,15 @@ Add a simple native capability by implementing `Tool`, giving it a namespaced na
 argument model, then registering it in the composition root. Do not modify `core/application.py`
 or `agent/runtime.py`. Integrations added later belong outside `tools`; their tools should adapt
 integration operations into the stable `Tool` contract.
+
+## Policy and execution controls
+
+Each tool declares `ToolPolicyMetadata`: an explicit risk level, a confirmation requirement, and
+an execution timeout. The application resolves a tool only to inspect this metadata, evaluates
+policy, obtains confirmation if required, and then delegates execution to the dispatcher. A model
+cannot bypass or override any of those steps. `DefaultPolicy` supports configured denied tools,
+risk overrides, and risk levels that require confirmation. The default non-interactive
+confirmation handler rejects requests; the CLI provides an explicit `y`/`yes` prompt.
 
 ## Configuration and development
 

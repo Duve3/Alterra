@@ -1,7 +1,7 @@
 ﻿# Alterra
 
-Alterra is a modular personal AI assistant platform. Phase 1 establishes a text-only,
-provider-neutral message → agent → tool → result → agent loop.
+Alterra is a modular personal AI assistant platform. Phase 2 provides a text-only,
+provider-neutral message → agent → policy → tool → result → agent loop.
 
 ```powershell
 uv run alterra
@@ -31,3 +31,15 @@ ALTERRA_OPENROUTER_APP_NAME=Alterra
 
 Alterra uses OpenRouter's Responses-compatible endpoint while keeping its model interface and
 tool protocol provider-neutral.
+
+## Policy and confirmation
+
+Tools declare a risk level and execution timeout. Before a tool runs, Alterra policy may deny it
+or request confirmation. The CLI accepts only `y` or `yes`; non-interactive hosts deny requested
+confirmations by default. Configure policy through JSON-compatible environment variables, such as:
+
+```env
+ALTERRA_POLICY_DENIED_TOOLS=["filesystem.delete"]
+ALTERRA_POLICY_CONFIRMATION_RISKS=["medium","high","critical"]
+ALTERRA_POLICY_RISK_OVERRIDES={"computer.open_application":"medium"}
+```

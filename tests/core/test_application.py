@@ -3,7 +3,8 @@ import pytest
 from alterra.core.config import Settings
 from alterra.core.errors import ConfigurationError
 from alterra.core.messages import UserMessage
-from alterra.main import build_application
+from alterra.core.policy import RiskLevel, ToolPolicyMetadata
+from alterra.main import ConsoleConfirmationHandler, build_application
 
 
 @pytest.mark.parametrize(("prompt", "expected"), [("What is 15 * 4?", "60"), ("Echo \"hello Alterra\"", "hello Alterra")])
@@ -29,3 +30,13 @@ def test_openrouter_profile_builds_without_touching_core_contracts() -> None:
         Settings(model_provider="openrouter", openrouter_api_key="test-key", openrouter_model="openai/gpt-5")
     )
     assert application is not None
+
+
+async def test_console_confirmation_accepts_only_explicit_yes() -> None:
+    request = type(
+        "Request",
+        (),
+        {"tool_name": "test.tool", "metadata": ToolPolicyMetadata(risk_level=RiskLevel.HIGH), "arguments": {}},
+    )()
+    assert await ConsoleConfirmationHandler(lambda _: "yes").confirm(request) is True
+    assert await ConsoleConfirmationHandler(lambda _: "").confirm(request) is False

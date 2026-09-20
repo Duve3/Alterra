@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Callable
 
 from .agent.providers import LocalModel, OpenAIResponsesModel, OpenRouterResponsesModel
 from .agent.runtime import AgentRuntime
@@ -11,13 +12,30 @@ from .core.application import AlterraApplication
 from .core.config import Settings
 from .core.errors import ConfigurationError
 from .core.messages import UserMessage
-from .core.policy import DefaultPolicy
+from .core.policy import ConfirmationHandler, DefaultPolicy, PolicyRequest
 from .tools.builtin import CalculatorTool, EchoTool, TimeTool
 from .tools.dispatcher import ToolDispatcher
 from .tools.registry import ToolRegistry
 
 
-def build_application(settings: Settings | None = None) -> AlterraApplication:
+class ConsoleConfirmationHandler:
+    """CLI adapter for the Core confirmation contract."""
+
+    def __init__(self, prompt: Callable[[str], str] = input) -> None:
+        self._prompt = prompt
+
+    async def confirm(self, request: PolicyRequest) -> bool:
+        answer = await asyncio.to_thread(
+            self._prompt,
+            f"Allow {request.tool_name} ({request.metadata.risk_level.value} risk) with {request.arguments}? [y/N] ",
+        )
+        return answer.strip().lower() in {"y", "yes"}
+
+
+def build_application(
+    settings: Settings | None = None,
+    confirmation_handler: ConfirmationHandler | None = None,
+) -> AlterraApplication:
     settings = settings or Settings()
     registry = ToolRegistry()
     for tool in (CalculatorTool(), TimeTool(), EchoTool()):
@@ -44,12 +62,17 @@ def build_application(settings: Settings | None = None) -> AlterraApplication:
         risk_overrides=settings.policy_risk_overrides,
     )
     return AlterraApplication(
-        AgentRuntime(model, registry), registry, ToolDispatcher(registry), policy, max_tool_rounds=settings.max_tool_rounds
+        AgentRuntime(model, registry),
+        registry,
+        ToolDispatcher(registry),
+        policy,
+        confirmation_handler,
+        max_tool_rounds=settings.max_tool_rounds,
     )
 
 
 async def run_cli(application: AlterraApplication) -> None:
-    print("Alterra Phase 1. Type 'exit' to quit.")
+    print("Alterra Phase 2. Type 'exit' to quit.")
     while (text := input("> ").strip()).lower() not in {"exit", "quit"}:
         if text:
             reply = await application.handle_message(UserMessage(content=text, session_id="cli"))
@@ -57,8 +80,9 @@ async def run_cli(application: AlterraApplication) -> None:
 
 
 def main() -> None:
-    logging.basicConfig(level=Settings().log_level)
-    asyncio.run(run_cli(build_application()))
+    settings = Settings()
+    logging.basicConfig(level=settings.log_level)
+    asyncio.run(run_cli(build_application(settings, ConsoleConfirmationHandler())))
 
 
 if __name__ == "__main__":
