@@ -55,3 +55,9 @@ async def test_retriever_delegates_and_store_handles_missing_and_delete(database
 async def test_search_rejects_invalid_limit(database_path) -> None:
     with pytest.raises(ValueError, match="at least one"):
         await SQLiteMemoryStore(database_path).search("anything", limit=0)
+
+
+async def test_store_initializes_once_when_operations_are_concurrent(database_path) -> None:
+    store = SQLiteMemoryStore(database_path)
+    records = await __import__("asyncio").gather(*[store.create(MemoryCreate(content=str(number))) for number in range(2)])
+    assert len(records) == 2

@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from alterra.core.messages import ToolCall
 from alterra.core.policy import RiskLevel, ToolPolicyMetadata
+from alterra.core.errors import ToolNotFoundError
 from alterra.tools.base import Tool, ToolContext
 from alterra.tools.builtin import CalculatorTool, EchoTool
 from alterra.tools.dispatcher import ToolDispatcher
@@ -52,3 +53,12 @@ async def test_dispatcher_enforces_tool_timeout() -> None:
     result = await ToolDispatcher(registry).dispatch(ToolCall(name="test.slow"), session_id="test")
     assert result.success is False
     assert result.error == "Tool timed out after 0.01 seconds"
+
+
+def test_registry_rejects_duplicates_and_missing_tools() -> None:
+    registry = ToolRegistry()
+    registry.register(EchoTool())
+    with pytest.raises(ValueError, match="already registered"):
+        registry.register(EchoTool())
+    with pytest.raises(ToolNotFoundError):
+        registry.get("missing")

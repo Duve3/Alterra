@@ -87,5 +87,5 @@ def main() -> None:
     asyncio.run(run_cli(build_application(settings, ConsoleConfirmationHandler())))
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()

@@ -67,3 +67,10 @@ async def test_confirmation_can_authorize_policy_approved_tool() -> None:
     app = build_policy_application(DefaultPolicy(), confirmation)
     reply = await app.handle_message(UserMessage(content="do it"))
     assert reply.content == "executed"
+
+
+def test_policy_honors_risk_overrides_and_explicit_confirmation() -> None:
+    request = type("Request", (), {"tool_name": "test.low", "metadata": ToolPolicyMetadata(risk_level=RiskLevel.LOW, requires_confirmation=True), "arguments": {}, "session_id": "s"})()
+    decision = DefaultPolicy(risk_overrides={"test.low": RiskLevel.HIGH}).evaluate(request)
+    assert decision.allowed is True
+    assert decision.requires_confirmation is True
