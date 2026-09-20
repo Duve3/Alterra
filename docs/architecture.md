@@ -1,4 +1,4 @@
-# Alterra architecture — Phase 2
+# Alterra architecture — Phase 3
 
 ## Current phase
 

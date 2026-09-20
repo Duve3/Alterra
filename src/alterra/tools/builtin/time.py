@@ -1,5 +1,4 @@
 from datetime import UTC, datetime
-from typing import ClassVar
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, Field
@@ -18,7 +17,7 @@ class TimeTool(Tool):
     name = "time.current"
     description = "Get the current time in an IANA timezone."
     arguments_model = TimeArguments
-    metadata = ToolPolicyMetadata(risk_level=RiskLevel.HIGH, timeout_seconds = 5)  # if time is not retrieved in 5 seconds, stop it
+    metadata = ToolPolicyMetadata(risk_level=RiskLevel.NONE, timeout_seconds = 5)  # if time is not retrieved in 5 seconds, stop it
 
     async def execute(self, arguments: TimeArguments, context: ToolContext) -> dict[str, str]:
         try:

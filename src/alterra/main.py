@@ -1,4 +1,4 @@
-"""Composition root and text-only CLI for Phase 2."""
+"""Composition root and text-only CLI for Phase 3."""
 
 from __future__ import annotations
 
@@ -74,7 +74,7 @@ def build_application(
 
 
 async def run_cli(application: AlterraApplication) -> None:
-    print("Alterra Phase 2. Type 'exit' to quit.")
+    print("Alterra Phase 3. Type 'exit' to quit.")
     while (text := input("> ").strip()).lower() not in {"exit", "quit"}:
         if text:
             reply = await application.handle_message(UserMessage(content=text, session_id="cli"))
