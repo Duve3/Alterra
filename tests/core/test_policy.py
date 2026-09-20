@@ -1,8 +1,10 @@
+import pytest
 from pydantic import BaseModel
 
 from alterra.agent.model import AgentResponse
 from alterra.agent.runtime import AgentRuntime
 from alterra.core.application import AlterraApplication
+from alterra.core.errors import AgentError
 from alterra.core.messages import AssistantMessage, ToolCall, UserMessage
 from alterra.core.policy import DefaultPolicy, RiskLevel, ToolPolicyMetadata
 from alterra.tools.base import Tool, ToolContext
@@ -80,6 +82,31 @@ async def test_unknown_tool_becomes_an_operational_result() -> None:
 
     app = AlterraApplication(AgentRuntime(UnknownModel(), registry), registry, ToolDispatcher(registry), DefaultPolicy())
     assert "not available" in (await app.handle_message(UserMessage(content="x"))).content
+
+
+async def test_application_rejects_empty_agent_response_and_tool_loop_limit() -> None:
+    registry = ToolRegistry()
+
+    class EmptyModel:
+        async def generate(self, messages, tools) -> AgentResponse:
+            return AgentResponse.model_construct(message=None, tool_calls=[])
+
+    class LoopModel:
+        async def generate(self, messages, tools) -> AgentResponse:
+            return AgentResponse(tool_calls=[ToolCall(name="unknown.tool")])
+
+    empty = AlterraApplication(AgentRuntime(EmptyModel(), registry), registry, ToolDispatcher(registry), DefaultPolicy())
+    looping = AlterraApplication(AgentRuntime(LoopModel(), registry), registry, ToolDispatcher(registry), DefaultPolicy(), max_tool_rounds=1)
+    with pytest.raises(AgentError, match="neither"):
+        await empty.handle_message(UserMessage(content="x"))
+    with pytest.raises(AgentError, match="round limit"):
+        await looping.handle_message(UserMessage(content="x"))
+
+
+async def test_rejecting_confirmation_handler_denies() -> None:
+    from alterra.core.policy import RejectingConfirmationHandler
+
+    assert await RejectingConfirmationHandler().confirm(None) is False
 
 
 def test_policy_honors_risk_overrides_and_explicit_confirmation() -> None:

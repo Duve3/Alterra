@@ -26,6 +26,15 @@ async def test_dispatcher_validates_and_executes(dispatcher: ToolDispatcher) -> 
     assert result.data == 60
 
 
+async def test_calculator_supports_unary_operators() -> None:
+    registry = ToolRegistry()
+    registry.register(CalculatorTool())
+    result = await ToolDispatcher(registry).dispatch(
+        ToolCall(name="calculator.evaluate", arguments={"expression": "-5 + +2"}), session_id="test"
+    )
+    assert result.data == -3
+
+
 async def test_dispatcher_returns_operational_failure(dispatcher: ToolDispatcher) -> None:
     result = await dispatcher.dispatch(ToolCall(name="calculator.evaluate", arguments={"expression": "__import__('os')"}), session_id="test")
     assert result.success is False
