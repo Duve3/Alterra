@@ -1,0 +1,22 @@
+"""Validated capability execution boundary. Policy and auditing can extend this point."""
+
+from pydantic import ValidationError
+
+from ..core.errors import ToolError
+from ..core.messages import ToolCall, ToolResult
+from .base import ToolContext
+from .registry import ToolRegistry
+
+
+class ToolDispatcher:
+    def __init__(self, registry: ToolRegistry):
+        self._registry = registry
+
+    async def dispatch(self, call: ToolCall, *, session_id: str) -> ToolResult:
+        try:
+            tool = self._registry.get(call.name)
+            arguments = tool.arguments_model.model_validate(call.arguments)
+            data = await tool.execute(arguments, ToolContext(session_id=session_id))
+            return ToolResult(tool_call_id=call.id, name=call.name, success=True, data=data)
+        except (ToolError, ValidationError, ValueError) as error:
+            return ToolResult(tool_call_id=call.id, name=call.name, success=False, error=str(error))
