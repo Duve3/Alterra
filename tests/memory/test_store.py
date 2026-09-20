@@ -1,6 +1,12 @@
 import pytest
 
-from alterra.memory import MemoryCreate, MemoryRetriever, MemoryScope, MemorySource, SQLiteMemoryStore
+from alterra.memory import (
+    MemoryCreate,
+    MemoryRetriever,
+    MemoryScope,
+    MemorySource,
+    SQLiteMemoryStore,
+)
 
 
 @pytest.fixture
