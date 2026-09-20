@@ -21,5 +21,9 @@ class ToolNotFoundError(ToolError):
     """Raised when a requested tool is not registered."""
 
 
+class PermissionDeniedError(ToolError):
+    """Raised when application policy denies a proposed capability."""
+
+
 class AgentError(AlterraError):
     """Raised for an expected model or agent failure."""

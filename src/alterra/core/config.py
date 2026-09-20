@@ -6,6 +6,8 @@ from typing import Literal
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from .policy import RiskLevel
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_prefix="ALTERRA_", extra="ignore")
@@ -22,3 +24,8 @@ class Settings(BaseSettings):
     database_path: Path = Path("data/alterra.db")
     log_level: str = "INFO"
     max_tool_rounds: int = Field(default=8, ge=1, le=32)
+    policy_denied_tools: set[str] = Field(default_factory=set)
+    policy_confirmation_risks: set[RiskLevel] = Field(
+        default_factory=lambda: {RiskLevel.MEDIUM, RiskLevel.HIGH, RiskLevel.CRITICAL}
+    )
+    policy_risk_overrides: dict[str, RiskLevel] = Field(default_factory=dict)

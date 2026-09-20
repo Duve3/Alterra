@@ -7,6 +7,8 @@ from typing import Any, ClassVar
 
 from pydantic import BaseModel
 
+from ..core.policy import ToolPolicyMetadata
+
 
 class ToolContext(BaseModel):
     session_id: str
@@ -16,6 +18,7 @@ class Tool(ABC):
     name: ClassVar[str]
     description: ClassVar[str]
     arguments_model: ClassVar[type[BaseModel]]
+    metadata: ClassVar[ToolPolicyMetadata] = ToolPolicyMetadata()
 
     @classmethod
     def definition(cls) -> dict[str, Any]:
@@ -23,6 +26,7 @@ class Tool(ABC):
             "name": cls.name,
             "description": cls.description,
             "input_schema": cls.arguments_model.model_json_schema(),
+            "metadata": cls.metadata.model_dump(mode="json"),
         }
 
     @abstractmethod

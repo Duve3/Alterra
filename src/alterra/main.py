@@ -11,6 +11,7 @@ from .core.application import AlterraApplication
 from .core.config import Settings
 from .core.errors import ConfigurationError
 from .core.messages import UserMessage
+from .core.policy import DefaultPolicy
 from .tools.builtin import CalculatorTool, EchoTool, TimeTool
 from .tools.dispatcher import ToolDispatcher
 from .tools.registry import ToolRegistry
@@ -37,7 +38,14 @@ def build_application(settings: Settings | None = None) -> AlterraApplication:
         )
     else:
         model = LocalModel()
-    return AlterraApplication(AgentRuntime(model, registry), ToolDispatcher(registry), max_tool_rounds=settings.max_tool_rounds)
+    policy = DefaultPolicy(
+        denied_tools=settings.policy_denied_tools,
+        confirmation_risks=settings.policy_confirmation_risks,
+        risk_overrides=settings.policy_risk_overrides,
+    )
+    return AlterraApplication(
+        AgentRuntime(model, registry), registry, ToolDispatcher(registry), policy, max_tool_rounds=settings.max_tool_rounds
+    )
 
 
 async def run_cli(application: AlterraApplication) -> None:

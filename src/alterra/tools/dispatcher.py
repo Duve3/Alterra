@@ -1,5 +1,7 @@
 """Validated capability execution boundary. Policy and auditing can extend this point."""
 
+import asyncio
+
 from pydantic import ValidationError
 
 from ..core.errors import ToolError
@@ -16,7 +18,15 @@ class ToolDispatcher:
         try:
             tool = self._registry.get(call.name)
             arguments = tool.arguments_model.model_validate(call.arguments)
-            data = await tool.execute(arguments, ToolContext(session_id=session_id))
+            async with asyncio.timeout(tool.metadata.timeout_seconds):
+                data = await tool.execute(arguments, ToolContext(session_id=session_id))
             return ToolResult(tool_call_id=call.id, name=call.name, success=True, data=data)
+        except TimeoutError:
+            return ToolResult(
+                tool_call_id=call.id,
+                name=call.name,
+                success=False,
+                error=f"Tool timed out after {tool.metadata.timeout_seconds} seconds",
+            )
         except (ToolError, ValidationError, ValueError) as error:
             return ToolResult(tool_call_id=call.id, name=call.name, success=False, error=str(error))
