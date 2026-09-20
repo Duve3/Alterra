@@ -69,6 +69,19 @@ async def test_confirmation_can_authorize_policy_approved_tool() -> None:
     assert reply.content == "executed"
 
 
+async def test_unknown_tool_becomes_an_operational_result() -> None:
+    registry = ToolRegistry()
+
+    class UnknownModel:
+        async def generate(self, messages, tools) -> AgentResponse:
+            if len(messages) == 1:
+                return AgentResponse(tool_calls=[ToolCall(name="unknown.tool")])
+            return AgentResponse(message=AssistantMessage(content=messages[-1].error))
+
+    app = AlterraApplication(AgentRuntime(UnknownModel(), registry), registry, ToolDispatcher(registry), DefaultPolicy())
+    assert "not available" in (await app.handle_message(UserMessage(content="x"))).content
+
+
 def test_policy_honors_risk_overrides_and_explicit_confirmation() -> None:
     request = type("Request", (), {"tool_name": "test.low", "metadata": ToolPolicyMetadata(risk_level=RiskLevel.LOW, requires_confirmation=True), "arguments": {}, "session_id": "s"})()
     decision = DefaultPolicy(risk_overrides={"test.low": RiskLevel.HIGH}).evaluate(request)

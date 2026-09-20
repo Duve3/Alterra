@@ -88,3 +88,12 @@ async def test_openai_adapter_surfaces_errors_and_empty_messages(monkeypatch) ->
     FakeClient.response = FakeResponse({}, status_code=401)
     with pytest.raises(AgentError, match="401"):
         await model.generate([UserMessage(content="hi")], [])
+
+
+async def test_openai_adapter_serializes_tool_results(monkeypatch) -> None:
+    monkeypatch.setattr("alterra.agent.providers.openai.httpx.AsyncClient", FakeClient)
+    FakeClient.response = FakeResponse({"output": []})
+    await OpenAIResponsesModel(api_key="key", model="model").generate(
+        [ToolResult(tool_call_id="call", name="echo.repeat", success=True, data="hi")], []
+    )
+    assert FakeClient.captured[1]["json"]["input"][0]["type"] == "function_call_output"

@@ -3,9 +3,9 @@ import asyncio
 import pytest
 from pydantic import BaseModel
 
+from alterra.core.errors import ToolNotFoundError
 from alterra.core.messages import ToolCall
 from alterra.core.policy import RiskLevel, ToolPolicyMetadata
-from alterra.core.errors import ToolNotFoundError
 from alterra.tools.base import Tool, ToolContext
 from alterra.tools.builtin import CalculatorTool, EchoTool
 from alterra.tools.dispatcher import ToolDispatcher

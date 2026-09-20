@@ -82,7 +82,7 @@ class SQLiteMemoryStore:
 
     def _initialize_sync(self) -> None:
         self._database_path.parent.mkdir(parents=True, exist_ok=True)
-        with closing(self._connect()) as connection:
+        with closing(self._connect()) as connection, connection:
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS memories (
@@ -102,7 +102,7 @@ class SQLiteMemoryStore:
             connection.execute("CREATE INDEX IF NOT EXISTS idx_memories_scope ON memories(scope, scope_id)")
 
     def _create_sync(self, record: MemoryRecord) -> None:
-        with closing(self._connect()) as connection:
+        with closing(self._connect()) as connection, connection:
             connection.execute(
                 """
                 INSERT INTO memories (
@@ -124,7 +124,7 @@ class SQLiteMemoryStore:
             )
 
     def _get_sync(self, memory_id: str) -> sqlite3.Row | None:
-        with closing(self._connect()) as connection:
+        with closing(self._connect()) as connection, connection:
             connection.row_factory = sqlite3.Row
             return connection.execute("SELECT * FROM memories WHERE id = ?", (memory_id,)).fetchone()
 
@@ -144,7 +144,7 @@ class SQLiteMemoryStore:
             clauses.append("scope_id = ?")
             parameters.append(scope_id)
         parameters.append(limit)
-        with closing(self._connect()) as connection:
+        with closing(self._connect()) as connection, connection:
             connection.row_factory = sqlite3.Row
             return connection.execute(
                 f"SELECT * FROM memories WHERE {' AND '.join(clauses)} ORDER BY updated_at DESC LIMIT ?",
@@ -152,7 +152,7 @@ class SQLiteMemoryStore:
             ).fetchall()
 
     def _delete_sync(self, memory_id: str) -> bool:
-        with closing(self._connect()) as connection:
+        with closing(self._connect()) as connection, connection:
             cursor = connection.execute("DELETE FROM memories WHERE id = ?", (memory_id,))
             return cursor.rowcount > 0
 
