@@ -46,8 +46,10 @@ integration operations into the stable `Tool` contract.
 ## Configuration and development
 
 Environment variables use the `ALTERRA_` prefix. The default `local` model profile is offline and
-supports the Phase 1 demos. Set `ALTERRA_MODEL_PROVIDER=openai` and `ALTERRA_OPENAI_API_KEY` to
-use the optional Responses API adapter. Run `uv run pytest` and `uv run ruff check .`.
+supports the Phase 1 demos. Set `ALTERRA_MODEL_PROVIDER=openai` with `ALTERRA_OPENAI_API_KEY`, or
+`ALTERRA_MODEL_PROVIDER=openrouter` with `ALTERRA_OPENROUTER_API_KEY`, to use an optional Responses
+API adapter. OpenRouter models use their catalog-style slug through `ALTERRA_OPENROUTER_MODEL`
+(for example, `openai/gpt-5`). Run `uv run pytest` and `uv run ruff check .`.
 
 ## Known limitations
 

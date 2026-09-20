@@ -14,14 +14,26 @@ from ..model import AgentResponse
 
 
 class OpenAIResponsesModel:
-    def __init__(self, *, api_key: str, model: str, base_url: str = "https://api.openai.com/v1"):
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        model: str,
+        base_url: str = "https://api.openai.com/v1",
+        extra_headers: dict[str, str] | None = None,
+    ):
         self._api_key, self._model = api_key, model
         self._base_url = base_url.rstrip("/")
+        self._extra_headers = extra_headers or {}
 
     async def generate(self, messages: list[ConversationMessage], tools: list[dict]) -> AgentResponse:
         payload = {"model": self._model, "input": [self._input_item(item) for item in messages], "tools": [self._tool(item) for item in tools], "tool_choice": "auto"}
         async with httpx.AsyncClient(timeout=60) as client:
-            response = await client.post(f"{self._base_url}/responses", headers={"Authorization": f"Bearer {self._api_key}"}, json=payload)
+            response = await client.post(
+                f"{self._base_url}/responses",
+                headers={"Authorization": f"Bearer {self._api_key}", **self._extra_headers},
+                json=payload,
+            )
         if response.is_error:
             raise AgentError(f"OpenAI Responses request failed ({response.status_code}): {response.text}")
         output = response.json().get("output", [])

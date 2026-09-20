@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from .agent.providers import LocalModel, OpenAIResponsesModel
+from .agent.providers import LocalModel, OpenAIResponsesModel, OpenRouterResponsesModel
 from .agent.runtime import AgentRuntime
 from .core.application import AlterraApplication
 from .core.config import Settings
@@ -25,6 +25,16 @@ def build_application(settings: Settings | None = None) -> AlterraApplication:
         if not settings.openai_api_key:
             raise ConfigurationError("ALTERRA_OPENAI_API_KEY is required for the openai provider")
         model = OpenAIResponsesModel(api_key=settings.openai_api_key, model=settings.model_name, base_url=settings.openai_base_url)
+    elif settings.model_provider == "openrouter":
+        if not settings.openrouter_api_key:
+            raise ConfigurationError("ALTERRA_OPENROUTER_API_KEY is required for the openrouter provider")
+        model = OpenRouterResponsesModel(
+            api_key=settings.openrouter_api_key,
+            model=settings.openrouter_model,
+            base_url=settings.openrouter_base_url,
+            site_url=settings.openrouter_site_url,
+            app_name=settings.openrouter_app_name,
+        )
     else:
         model = LocalModel()
     return AlterraApplication(AgentRuntime(model, registry), ToolDispatcher(registry), max_tool_rounds=settings.max_tool_rounds)
