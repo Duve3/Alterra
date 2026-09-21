@@ -1,16 +1,17 @@
-# Alterra architecture — Phase 5
+# Alterra architecture — Phase 6
 
 ## Current phase
 
-Phase 5 adds the scheduler subsystem for recurring and one-time tasks. Voice, integrations, MCP,
-and computer control are deliberately out of scope.
+Phase 6 adds the voice subsystem for wake word detection, voice activity detection, speech-to-text,
+and text-to-speech. Integrations, MCP, and computer control are deliberately out of scope.
 
 ## Boundaries and dependency direction
 
 `main` is the composition root. `core` owns the user-interaction lifecycle and sessions;
 `agent` owns model interaction; `tools` owns definitions, validation, registration, and execution.
 `events` owns the event bus and subscriptions. `scheduler` owns task scheduling and execution.
-Tools have no model dependency. Provider-specific code is isolated under `agent/providers`.
+`voice` owns audio I/O, wake word, VAD, STT, and TTS abstractions. Tools have no model dependency.
+Provider-specific code is isolated under `agent/providers`.
 
 ```mermaid
 flowchart TD
@@ -33,6 +34,12 @@ flowchart TD
   Core --> Scheduler[Scheduler]
   Scheduler -->|ToolCall| Dispatcher
   Scheduler --> Store[(Task Store)]
+  Core --> Voice[VoicePipeline]
+  Voice --> Audio[Audio I/O]
+  Voice --> WW[Wake Word]
+  Voice --> VAD[VAD]
+  Voice --> STT[STT]
+  Voice --> TTS[TTS]
 ```
 
 ## Contracts
@@ -50,8 +57,38 @@ flowchart TD
 | `EventBus` | `events` | Async publish/subscribe with filters |
 | `Schedule`, `TaskCreate`, `TaskRecord` | `scheduler` | Task definitions and runtime state |
 | `Scheduler`, `TaskStore` | `scheduler` | Task scheduling, persistence, and execution |
+| `AudioChunk`, `TranscriptionResult` | `voice` | Audio data and STT results |
+| `WakeWordResult`, `VADResult` | `voice` | Wake word and VAD results |
+| `WakeWordBackend`, `VADBackend` | `voice` | Replaceable wake word and VAD backends |
+| `STTBackend`, `TTSBackend` | `voice` | Replaceable STT and TTS backends |
+| `AudioBackend`, `AudioPlayer` | `voice` | Audio I/O abstraction |
+| `VoicePipeline`, `VoiceConfig` | `voice` | Voice pipeline orchestration |
 
 ## Subsystems
+
+### Voice (Phase 6)
+
+The voice subsystem provides a complete audio interaction pipeline with replaceable backends:
+
+- **AudioChunk** — Immutable audio buffer with sample rate, channels, timestamp
+- **WakeWordBackend** — Detects wake words (e.g., "Alterra") from streaming audio
+- **VADBackend** — Voice Activity Detection distinguishes speech from silence
+- **STTBackend** — Speech-to-Text transcribes audio to text (supports streaming)
+- **TTSBackend** — Text-to-Speech synthesizes text to audio (supports streaming)
+- **AudioBackend** — Abstracts microphone capture and speaker playback
+- **VoicePipeline** — Orchestrates the full pipeline: wake word → VAD → STT → TTS
+
+The pipeline operates as a state machine:
+1. **LISTENING_WAKE** — Waiting for wake word
+2. **LISTENING_SPEECH** — Capturing speech after wake word
+3. **TRANSCRIBING** — Running STT on captured audio
+4. **SPEAKING** — Playing TTS response
+
+**Voice Tools (Phase 6):**
+- `voice.listen` — Start listening for voice input (LOW risk)
+- `voice.speak` — Speak text using TTS (LOW risk)
+- `voice.stop` — Stop the voice pipeline (NONE risk)
+- `voice.status` — Get pipeline status (NONE risk)
 
 ### Scheduler (Phase 5)
 
@@ -113,6 +150,9 @@ The handler receives `Event` objects; filters can narrow delivery.
 
 Add a scheduled task via `scheduler.create` tool; the scheduler loop handles execution timing.
 
+Add a voice backend by implementing `WakeWordBackend`, `VADBackend`, `STTBackend`, `TTSBackend`,
+or `AudioBackend` and registering in the composition root.
+
 ## Policy and execution controls
 
 Each tool declares `ToolPolicyMetadata`: an explicit risk level, a confirmation requirement, and
@@ -132,8 +172,10 @@ API adapter. OpenRouter models use their catalog-style slug through `ALTERRA_OPE
 
 ## Known limitations
 
-The local model is intentionally deterministic and only routes the Phase 1 tools plus memory and
-scheduler tools. It is a development provider, not a general conversational model. The OpenAI adapter
-translates the provider's function calls at the boundary, leaving the rest of Alterra
-provider-neutral. The event bus and scheduler are in-memory only; distributed implementations would
-require separate backends. Cron schedule support is a stub; a full cron parser is planned for Phase 6+.
+The local model is intentionally deterministic and only routes the Phase 1 tools plus memory,
+scheduler, and voice tools. It is a development provider, not a general conversational model.
+The OpenAI adapter translates the provider's function calls at the boundary, leaving the rest of
+Alterra provider-neutral. The event bus and scheduler are in-memory only; distributed implementations
+would require separate backends. Cron schedule support is a stub; a full cron parser is planned
+for future phases. Voice real backends (faster-whisper, Piper, Silero VAD, openWakeWord) require
+external model downloads and are not included in the base dependencies.

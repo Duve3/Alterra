@@ -41,6 +41,19 @@ class LocalModel:
                 )
             if last.name == "memory.delete":
                 return AgentResponse(message=AssistantMessage(content="Memory deleted."))
+            if last.name == "voice.status":
+                data = last.data
+                return AgentResponse(
+                    message=AssistantMessage(
+                        content=f"Voice pipeline: {'running' if data.get('running') else 'stopped'}, state: {data.get('state')}"
+                    )
+                )
+            if last.name == "voice.speak":
+                return AgentResponse(message=AssistantMessage(content="Done speaking."))
+            if last.name == "voice.listen":
+                return AgentResponse(message=AssistantMessage(content="Listening started."))
+            if last.name == "voice.stop":
+                return AgentResponse(message=AssistantMessage(content="Voice pipeline stopped."))
             return AgentResponse(message=AssistantMessage(content=str(last.data)))
         if not isinstance(last, UserMessage):
             return AgentResponse(message=AssistantMessage(content="How can I help?"))
@@ -120,8 +133,23 @@ class LocalModel:
                     ToolCall(name="memory.retrieve", arguments={"query": query, "scope": "user"})
                 ]
             )
+        if re.search(r"\bvoice\s+(status|state)\b", text, flags=re.IGNORECASE):
+            return AgentResponse(tool_calls=[ToolCall(name="voice.status", arguments={})])
+        if re.search(r"\bvoice\s+speak\s+(.+)", text, flags=re.IGNORECASE):
+            speak_text = re.sub(r"\bvoice\s+speak\s+", "", text, flags=re.IGNORECASE).strip()
+            return AgentResponse(
+                tool_calls=[ToolCall(name="voice.speak", arguments={"text": speak_text})]
+            )
+        if re.search(r"\bvoice\s+(listen|start)\b", text, flags=re.IGNORECASE):
+            duration_match = re.search(r"(\d+(?:\.\d+)?)", text)
+            duration = float(duration_match.group(1)) if duration_match else 10.0
+            return AgentResponse(
+                tool_calls=[ToolCall(name="voice.listen", arguments={"duration": duration})]
+            )
+        if re.search(r"\bvoice\s+(stop|quit)\b", text, flags=re.IGNORECASE):
+            return AgentResponse(tool_calls=[ToolCall(name="voice.stop", arguments={})])
         return AgentResponse(
             message=AssistantMessage(
-                content="I can calculate arithmetic, tell the time, echo text, or manage memories (remember/recall)."
+                content="I can calculate arithmetic, tell the time, echo text, manage memories (remember/recall), or control voice (speak/listen/status/stop)."
             )
         )

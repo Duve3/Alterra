@@ -9,6 +9,7 @@ from .scheduler_cancel import SchedulerCancelTool
 from .scheduler_create import SchedulerCreateTool
 from .scheduler_list import SchedulerListTool
 from .time import TimeTool
+from .voice import VoiceListenTool, VoiceSpeakTool, VoiceStatusTool, VoiceStopTool
 
 __all__ = [
     "CalculatorTool",
@@ -20,4 +21,8 @@ __all__ = [
     "SchedulerCreateTool",
     "SchedulerListTool",
     "TimeTool",
+    "VoiceListenTool",
+    "VoiceSpeakTool",
+    "VoiceStatusTool",
+    "VoiceStopTool",
 ]

@@ -30,6 +30,15 @@ dev = [
     "pytest-cov>=7.0.0",
     "ruff>=0.16.8",
 ]
+voice = [
+    "faster-whisper>=1.0.0",
+    "piper-tts>=1.2.0",
+    "onnxruntime>=1.16.0",
+    "silero-vad>=5.0.0",
+    "openwakeword>=0.3.0",
+    "pyaudio>=0.2.13",
+    "webrtcvad>=2.0.10",
+]
 
 [tool.pyright]
 venvPath = "."

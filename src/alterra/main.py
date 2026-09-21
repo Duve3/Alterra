@@ -1,4 +1,4 @@
-"""Composition root and text-only CLI for Phase 5."""
+"""Composition root and text-only CLI for Phase 6."""
 
 from __future__ import annotations
 
@@ -25,9 +25,21 @@ from .tools.builtin import (
     SchedulerCreateTool,
     SchedulerListTool,
     TimeTool,
+    VoiceListenTool,
+    VoiceSpeakTool,
+    VoiceStatusTool,
+    VoiceStopTool,
 )
 from .tools.dispatcher import ToolDispatcher
 from .tools.registry import ToolRegistry
+from .voice.pipeline import VoicePipeline
+from .voice.backends import (
+    MockAudioBackend,
+    MockSTTBackend,
+    MockTTSBackend,
+    MockVADBackend,
+    MockWakeWordBackend,
+)
 
 
 class ConsoleConfirmationHandler:
@@ -59,6 +71,20 @@ def build_application(
     # Create scheduler (will be started by the CLI)
     scheduler = Scheduler(task_store, _tool_executor)
 
+    # Create voice pipeline
+    audio = MockAudioBackend()
+    wake_word = MockWakeWordBackend()
+    vad = MockVADBackend()
+    stt = MockSTTBackend()
+    tts = MockTTSBackend()
+    voice_pipeline = VoicePipeline(
+        audio_backend=audio,
+        wake_word=wake_word,
+        vad=vad,
+        stt=stt,
+        tts=tts,
+    )
+
     registry = ToolRegistry()
     for tool in (
         CalculatorTool(),
@@ -70,6 +96,10 @@ def build_application(
         SchedulerCreateTool(scheduler),
         SchedulerCancelTool(scheduler),
         SchedulerListTool(scheduler),
+        VoiceListenTool(voice_pipeline),
+        VoiceSpeakTool(voice_pipeline),
+        VoiceStatusTool(voice_pipeline),
+        VoiceStopTool(voice_pipeline),
     ):
         registry.register(tool)
 
@@ -120,7 +150,7 @@ async def run_cli(application: AlterraApplication) -> None:
     scheduler = Scheduler(task_store, lambda name, args: None)
     await scheduler.start()
 
-    print("Alterra Phase 5. Type 'exit' to quit.")
+    print("Alterra Phase 6. Type 'exit' to quit.")
     try:
         while (text := input("> ").strip()).lower() not in {"exit", "quit"}:
             if text:
