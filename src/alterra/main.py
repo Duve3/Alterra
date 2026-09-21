@@ -1,4 +1,4 @@
-"""Composition root and text-only CLI for Phase 3."""
+"""Composition root and text-only CLI for Phase 4."""
 
 from __future__ import annotations
 
@@ -14,7 +14,14 @@ from .core.errors import ConfigurationError
 from .core.messages import UserMessage
 from .core.policy import ConfirmationHandler, DefaultPolicy, PolicyRequest
 from .memory import SQLiteMemoryStore
-from .tools.builtin import CalculatorTool, EchoTool, TimeTool
+from .tools.builtin import (
+    CalculatorTool,
+    EchoTool,
+    MemoryDeleteTool,
+    MemoryRetrieveTool,
+    MemoryStoreTool,
+    TimeTool,
+)
 from .tools.dispatcher import ToolDispatcher
 from .tools.registry import ToolRegistry
 
@@ -38,16 +45,30 @@ def build_application(
     confirmation_handler: ConfirmationHandler | None = None,
 ) -> AlterraApplication:
     settings = settings or Settings()
+    memory_store = SQLiteMemoryStore(settings.database_path)
     registry = ToolRegistry()
-    for tool in (CalculatorTool(), TimeTool(), EchoTool()):
+    for tool in (
+        CalculatorTool(),
+        TimeTool(),
+        EchoTool(),
+        MemoryStoreTool(memory_store),
+        MemoryRetrieveTool(memory_store),
+        MemoryDeleteTool(memory_store),
+    ):
         registry.register(tool)
     if settings.model_provider == "openai":
         if not settings.openai_api_key:
             raise ConfigurationError("ALTERRA_OPENAI_API_KEY is required for the openai provider")
-        model = OpenAIResponsesModel(api_key=settings.openai_api_key, model=settings.model_name, base_url=settings.openai_base_url)
+        model = OpenAIResponsesModel(
+            api_key=settings.openai_api_key,
+            model=settings.model_name,
+            base_url=settings.openai_base_url,
+        )
     elif settings.model_provider == "openrouter":
         if not settings.openrouter_api_key:
-            raise ConfigurationError("ALTERRA_OPENROUTER_API_KEY is required for the openrouter provider")
+            raise ConfigurationError(
+                "ALTERRA_OPENROUTER_API_KEY is required for the openrouter provider"
+            )
         model = OpenRouterResponsesModel(
             api_key=settings.openrouter_api_key,
             model=settings.openrouter_model,
@@ -68,13 +89,13 @@ def build_application(
         ToolDispatcher(registry),
         policy,
         confirmation_handler,
-        SQLiteMemoryStore(settings.database_path),
+        memory_store,
         max_tool_rounds=settings.max_tool_rounds,
     )
 
 
 async def run_cli(application: AlterraApplication) -> None:
-    print("Alterra Phase 3. Type 'exit' to quit.")
+    print("Alterra Phase 4. Type 'exit' to quit.")
     while (text := input("> ").strip()).lower() not in {"exit", "quit"}:
         if text:
             reply = await application.handle_message(UserMessage(content=text, session_id="cli"))
