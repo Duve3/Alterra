@@ -1,5 +1,7 @@
 """Tool to retrieve memory records."""
 
+import re
+
 from pydantic import BaseModel, Field
 
 from ...core.policy import RiskLevel, ToolPolicyMetadata
@@ -8,8 +10,18 @@ from ...memory.store import MemoryStore
 from ..base import Tool, ToolContext
 
 
+_LIKE_SPECIAL_CHARS = re.compile(r"[%_?]")
+
+
+def _sanitize_like_query(query: str) -> str:
+    """Remove SQL LIKE special characters that would be treated as literals."""
+    return _LIKE_SPECIAL_CHARS.sub("", query)
+
+
 class MemoryRetrieveArguments(BaseModel):
-    query: str = Field(default="", description="Search query to find relevant memories.")
+    query: str = Field(
+        default="", description="Search query to find relevant memories. Empty returns all."
+    )
     scope: MemoryScope | None = Field(default=None, description="Filter by memory scope.")
     scope_id: str | None = Field(
         default=None, max_length=256, description="Filter by scope identifier."
@@ -19,7 +31,9 @@ class MemoryRetrieveArguments(BaseModel):
 
 class MemoryRetrieveTool(Tool):
     name = "memory.retrieve"
-    description = "Search and retrieve stored memories by query."
+    description = (
+        "Search and retrieve stored memories by query. Empty query returns all memories in scope."
+    )
     arguments_model = MemoryRetrieveArguments
     metadata = ToolPolicyMetadata(risk_level=RiskLevel.NONE, timeout_seconds=10)
 
@@ -27,10 +41,9 @@ class MemoryRetrieveTool(Tool):
         self._store = memory_store
 
     async def execute(self, arguments: MemoryRetrieveArguments, context: ToolContext) -> dict:
-        if not arguments.query.strip():
-            return {"results": [], "count": 0}
+        sanitized_query = _sanitize_like_query(arguments.query)
         records = await self._store.search(
-            query=arguments.query,
+            query=sanitized_query,
             scope=arguments.scope,
             scope_id=arguments.scope_id,
             limit=arguments.limit,

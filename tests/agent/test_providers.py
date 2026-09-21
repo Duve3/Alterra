@@ -1,4 +1,5 @@
 import json
+import re
 
 import pytest
 
@@ -16,6 +17,10 @@ from alterra.core.messages import SystemMessage, ToolResult, UserMessage
         (UserMessage(content="calculate -2 + 3"), "calculator.evaluate"),
         (UserMessage(content="unknown request"), None),
         (SystemMessage(content="context"), None),
+        (UserMessage(content="Remember that I like coffee"), "memory.store"),
+        (UserMessage(content="What do I like?"), "memory.retrieve"),
+        (UserMessage(content="What do you know about me?"), "memory.retrieve"),
+        (UserMessage(content="Where do I work?"), "memory.retrieve"),
     ],
 )
 async def test_local_model_routes_supported_and_fallback_messages(message, expected) -> None:
@@ -25,14 +30,78 @@ async def test_local_model_routes_supported_and_fallback_messages(message, expec
 
 async def test_local_model_formats_tool_results() -> None:
     model = LocalModel()
-    failed = await model.generate([ToolResult(tool_call_id="1", name="x", success=False, error="no")], [])
+    failed = await model.generate(
+        [ToolResult(tool_call_id="1", name="x", success=False, error="no")], []
+    )
     timed = await model.generate(
         [ToolResult(tool_call_id="1", name="time.current", success=True, data={"iso": "now"})], []
     )
-    generic = await model.generate([ToolResult(tool_call_id="1", name="x", success=True, data=3)], [])
+    generic = await model.generate(
+        [ToolResult(tool_call_id="1", name="x", success=True, data=3)], []
+    )
     assert failed.message.content == "I couldn't complete that: no"
     assert timed.message.content == "now"
     assert generic.message.content == "3"
+
+
+async def test_local_model_formats_memory_retrieve_results() -> None:
+    model = LocalModel()
+    empty = await model.generate(
+        [
+            ToolResult(
+                tool_call_id="1",
+                name="memory.retrieve",
+                success=True,
+                data={"results": [], "count": 0},
+            )
+        ],
+        [],
+    )
+    single = await model.generate(
+        [
+            ToolResult(
+                tool_call_id="1",
+                name="memory.retrieve",
+                success=True,
+                data={"results": [{"content": "I like coffee"}], "count": 1},
+            )
+        ],
+        [],
+    )
+    multiple = await model.generate(
+        [
+            ToolResult(
+                tool_call_id="1",
+                name="memory.retrieve",
+                success=True,
+                data={"results": [{"content": "a"}, {"content": "b"}], "count": 2},
+            )
+        ],
+        [],
+    )
+    assert "couldn't find" in empty.message.content.lower()
+    assert single.message.content == "I like coffee"
+    assert "Here are the matching memories" in multiple.message.content
+    assert "- a" in multiple.message.content
+    assert "- b" in multiple.message.content
+
+
+async def test_local_model_formats_memory_store_and_delete_results() -> None:
+    model = LocalModel()
+    store = await model.generate(
+        [ToolResult(tool_call_id="1", name="memory.store", success=True, data={})], []
+    )
+    delete = await model.generate(
+        [ToolResult(tool_call_id="1", name="memory.delete", success=True, data={})], []
+    )
+    assert "remember" in store.message.content.lower()
+    assert "deleted" in delete.message.content.lower()
+
+
+async def test_local_model_routes_forget_memory() -> None:
+    response = await LocalModel().generate([UserMessage(content="Forget that memory")], [])
+    assert response.message is not None
+    assert "memory ID" in response.message.content
 
 
 def test_agent_response_rejects_invalid_output_shapes() -> None:
@@ -71,9 +140,25 @@ class FakeClient:
 async def test_openai_adapter_translates_function_calls_and_text(monkeypatch) -> None:
     monkeypatch.setattr("alterra.agent.providers.openai.httpx.AsyncClient", FakeClient)
     model = OpenAIResponsesModel(api_key="key", model="model")
-    FakeClient.response = FakeResponse({"output": [{"type": "function_call", "call_id": "c", "name": "echo_repeat", "arguments": json.dumps({"text": "hi"})}]})
-    call = await model.generate([UserMessage(content="hi")], [{"name": "echo.repeat", "description": "e", "input_schema": {}}])
-    FakeClient.response = FakeResponse({"output": [{"type": "message", "content": [{"type": "output_text", "text": "hello"}]}]})
+    FakeClient.response = FakeResponse(
+        {
+            "output": [
+                {
+                    "type": "function_call",
+                    "call_id": "c",
+                    "name": "echo_repeat",
+                    "arguments": json.dumps({"text": "hi"}),
+                }
+            ]
+        }
+    )
+    call = await model.generate(
+        [UserMessage(content="hi")],
+        [{"name": "echo.repeat", "description": "e", "input_schema": {}}],
+    )
+    FakeClient.response = FakeResponse(
+        {"output": [{"type": "message", "content": [{"type": "output_text", "text": "hello"}]}]}
+    )
     text = await model.generate([UserMessage(content="hi")], [])
     assert call.tool_calls[0].name == "echo.repeat"
     assert text.message.content == "hello"
@@ -84,7 +169,9 @@ async def test_openai_adapter_surfaces_errors_and_empty_messages(monkeypatch) ->
     monkeypatch.setattr("alterra.agent.providers.openai.httpx.AsyncClient", FakeClient)
     model = OpenAIResponsesModel(api_key="key", model="model")
     FakeClient.response = FakeResponse({"output": []})
-    assert (await model.generate([UserMessage(content="hi")], [])).message.content.startswith("I was unable")
+    assert (await model.generate([UserMessage(content="hi")], [])).message.content.startswith(
+        "I was unable"
+    )
     FakeClient.response = FakeResponse({}, status_code=401)
     with pytest.raises(AgentError, match="401"):
         await model.generate([UserMessage(content="hi")], [])

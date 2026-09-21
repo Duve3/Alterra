@@ -56,8 +56,6 @@ class SQLiteMemoryStore:
         scope_id: str | None = None,
         limit: int = 10,
     ) -> list[MemoryRecord]:
-        if not query.strip():
-            return []
         if limit < 1:
             raise ValueError("limit must be at least one")
         await self._ensure_initialized()
@@ -99,7 +97,9 @@ class SQLiteMemoryStore:
                 )
                 """
             )
-            connection.execute("CREATE INDEX IF NOT EXISTS idx_memories_scope ON memories(scope, scope_id)")
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_memories_scope ON memories(scope, scope_id)"
+            )
 
     def _create_sync(self, record: MemoryRecord) -> None:
         with closing(self._connect()) as connection, connection:
@@ -126,7 +126,9 @@ class SQLiteMemoryStore:
     def _get_sync(self, memory_id: str) -> sqlite3.Row | None:
         with closing(self._connect()) as connection, connection:
             connection.row_factory = sqlite3.Row
-            return connection.execute("SELECT * FROM memories WHERE id = ?", (memory_id,)).fetchone()
+            return connection.execute(
+                "SELECT * FROM memories WHERE id = ?", (memory_id,)
+            ).fetchone()
 
     def _search_sync(
         self,
@@ -135,8 +137,12 @@ class SQLiteMemoryStore:
         scope_id: str | None,
         limit: int,
     ) -> list[sqlite3.Row]:
-        clauses = ["LOWER(content) LIKE LOWER(?)"]
-        parameters: list[str | int] = [f"%{query}%"]
+        clauses = []
+        parameters: list[str | int] = []
+        stripped_query = query.strip()
+        if stripped_query:
+            clauses.append("LOWER(content) LIKE LOWER(?)")
+            parameters.append(f"%{stripped_query}%")
         if scope is not None:
             clauses.append("scope = ?")
             parameters.append(scope.value)
@@ -146,8 +152,9 @@ class SQLiteMemoryStore:
         parameters.append(limit)
         with closing(self._connect()) as connection, connection:
             connection.row_factory = sqlite3.Row
+            where_clause = " WHERE " + " AND ".join(clauses) if clauses else ""
             return connection.execute(
-                f"SELECT * FROM memories WHERE {' AND '.join(clauses)} ORDER BY updated_at DESC LIMIT ?",
+                f"SELECT * FROM memories{where_clause} ORDER BY updated_at DESC LIMIT ?",
                 parameters,
             ).fetchall()
 
