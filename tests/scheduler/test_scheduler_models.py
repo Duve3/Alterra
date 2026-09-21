@@ -7,8 +7,6 @@ from alterra.scheduler.models import (
     ScheduleType,
     TaskCreate,
     TaskFilter,
-    TaskRecord,
-    TaskStatus,
 )
 
 

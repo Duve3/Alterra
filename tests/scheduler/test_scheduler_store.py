@@ -122,7 +122,7 @@ async def test_store_list_tasks(database_path) -> None:
 async def test_store_get_due_tasks(database_path) -> None:
     store = SQLiteTaskStore(database_path)
     from datetime import UTC, datetime, timedelta
-    from alterra.scheduler.models import TaskRecord, TaskStatus
+
 
     past = datetime.now(UTC) - timedelta(minutes=1)
     future = datetime.now(UTC) + timedelta(minutes=1)
@@ -166,6 +166,7 @@ async def test_scheduler_start_stop(database_path) -> None:
 
 async def test_scheduler_create_task(database_path) -> None:
     from datetime import UTC, datetime, timedelta
+
     from alterra.scheduler import Scheduler
 
     store = SQLiteTaskStore(database_path)
@@ -188,6 +189,7 @@ async def test_scheduler_create_task(database_path) -> None:
 async def test_scheduler_create_task_past_time_runs_immediately(database_path) -> None:
     """One-time tasks with past run_at should run at next tick."""
     from datetime import UTC, datetime, timedelta
+
     from alterra.scheduler import Scheduler
 
     store = SQLiteTaskStore(database_path)
@@ -206,6 +208,7 @@ async def test_scheduler_create_task_past_time_runs_immediately(database_path) -
 
 async def test_scheduler_cancel_task(database_path) -> None:
     from datetime import UTC, datetime, timedelta
+
     from alterra.scheduler import Scheduler
 
     store = SQLiteTaskStore(database_path)
@@ -247,6 +250,7 @@ async def test_scheduler_get_nonexistent(database_path) -> None:
 
 async def test_scheduler_list_tasks(database_path) -> None:
     from datetime import UTC, datetime, timedelta
+
     from alterra.scheduler import Scheduler
 
     store = SQLiteTaskStore(database_path)
@@ -268,7 +272,8 @@ async def test_scheduler_list_tasks(database_path) -> None:
 
 
 async def test_scheduler_interval_next_run(database_path) -> None:
-    from datetime import UTC, datetime, timedelta
+    from datetime import UTC, datetime
+
     from alterra.scheduler import Scheduler
 
     store = SQLiteTaskStore(database_path)
@@ -286,6 +291,7 @@ async def test_scheduler_interval_next_run(database_path) -> None:
 
 async def test_scheduler_execute_task_success(database_path) -> None:
     from datetime import UTC, datetime, timedelta
+
     from alterra.scheduler import Scheduler
 
     executed = []
@@ -317,6 +323,7 @@ async def test_scheduler_execute_task_success(database_path) -> None:
 
 async def test_scheduler_execute_task_failure(database_path) -> None:
     from datetime import UTC, datetime, timedelta
+
     from alterra.scheduler import Scheduler
 
     async def failing_executor(name: str, args: dict):
@@ -341,7 +348,8 @@ async def test_scheduler_execute_task_failure(database_path) -> None:
 
 
 async def test_scheduler_interval_task_multiple_runs(database_path) -> None:
-    from datetime import UTC, datetime, timedelta
+    from datetime import UTC, datetime
+
     from alterra.scheduler import Scheduler
 
     executed = []
@@ -421,7 +429,6 @@ async def test_scheduler_start_already_running(database_path) -> None:
 
 async def test_store_list_with_status_filter(database_path) -> None:
     store = SQLiteTaskStore(database_path)
-    from alterra.scheduler.models import TaskRecord
 
     past = datetime.now(UTC) - timedelta(minutes=1)
     task1 = TaskRecord(
@@ -507,7 +514,8 @@ async def test_scheduler_run_loop_exception_handling(database_path) -> None:
 
 async def test_scheduler_execute_task_next_run_none(database_path) -> None:
     """Test _execute_task when _compute_next_run returns None for interval task."""
-    from datetime import UTC, datetime, timedelta
+    from datetime import UTC, datetime
+
     from alterra.scheduler import Scheduler
 
     executed = []

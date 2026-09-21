@@ -10,7 +10,6 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime, timedelta
 
-from alterra.core.config import Settings
 from alterra.core.messages import ToolCall
 from alterra.scheduler import Scheduler, SQLiteTaskStore
 from alterra.tools.builtin import SchedulerCancelTool, SchedulerCreateTool, SchedulerListTool

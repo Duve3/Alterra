@@ -46,7 +46,6 @@ class ConsoleConfirmationHandler:
 
 async def _tool_executor(tool_name: str, arguments: dict) -> None:
     """Placeholder - in real use, this would dispatch through the application."""
-    pass
 
 
 def build_application(

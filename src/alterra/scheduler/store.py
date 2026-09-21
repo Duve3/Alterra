@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-import heapq
 import json
 import sqlite3
+from collections.abc import Callable
 from contextlib import closing
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Callable, Protocol
+from typing import Any, Protocol
 
 from .models import Schedule, ScheduleType, TaskCreate, TaskFilter, TaskRecord, TaskStatus
 
@@ -326,7 +326,7 @@ class Scheduler:
             if schedule.run_at:
                 run_at = datetime.fromisoformat(schedule.run_at.replace("Z", "+00:00"))
                 # If the scheduled time is in the past, run at the next tick (now)
-                return run_at if run_at > after else after
+                return max(after, run_at)
             return None
 
         if schedule.type == ScheduleType.INTERVAL:
