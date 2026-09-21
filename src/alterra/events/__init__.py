@@ -3,4 +3,4 @@
 from .bus import EventBus
 from .models import Event, EventSubscription
 
-__all__ = ["EventBus", "Event", "EventSubscription"]
+__all__ = ["Event", "EventBus", "EventSubscription"]

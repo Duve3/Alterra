@@ -3,7 +3,7 @@
 from pydantic import BaseModel, Field
 
 from ...core.policy import RiskLevel, ToolPolicyMetadata
-from ...memory.models import MemoryCreate, MemoryRecord, MemoryScope, MemorySource
+from ...memory.models import MemoryCreate, MemoryScope, MemorySource
 from ...memory.store import MemoryStore
 from ..base import Tool, ToolContext
 

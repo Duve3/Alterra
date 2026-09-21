@@ -5,10 +5,9 @@ import re
 from pydantic import BaseModel, Field
 
 from ...core.policy import RiskLevel, ToolPolicyMetadata
-from ...memory.models import MemoryRecord, MemoryScope
+from ...memory.models import MemoryScope
 from ...memory.store import MemoryStore
 from ..base import Tool, ToolContext
-
 
 _LIKE_SPECIAL_CHARS = re.compile(r"[%_?]")
 
