@@ -1,4 +1,4 @@
-"""Composition root and text-only CLI for Phase 4."""
+"""Composition root and text-only CLI for Phase 5."""
 
 from __future__ import annotations
 
@@ -14,12 +14,16 @@ from .core.errors import ConfigurationError
 from .core.messages import UserMessage
 from .core.policy import ConfirmationHandler, DefaultPolicy, PolicyRequest
 from .memory import SQLiteMemoryStore
+from .scheduler import Scheduler, SQLiteTaskStore
 from .tools.builtin import (
     CalculatorTool,
     EchoTool,
     MemoryDeleteTool,
     MemoryRetrieveTool,
     MemoryStoreTool,
+    SchedulerCancelTool,
+    SchedulerCreateTool,
+    SchedulerListTool,
     TimeTool,
 )
 from .tools.dispatcher import ToolDispatcher
@@ -40,12 +44,22 @@ class ConsoleConfirmationHandler:
         return answer.strip().lower() in {"y", "yes"}
 
 
+async def _tool_executor(tool_name: str, arguments: dict) -> None:
+    """Placeholder - in real use, this would dispatch through the application."""
+    pass
+
+
 def build_application(
     settings: Settings | None = None,
     confirmation_handler: ConfirmationHandler | None = None,
 ) -> AlterraApplication:
     settings = settings or Settings()
     memory_store = SQLiteMemoryStore(settings.database_path)
+    task_store = SQLiteTaskStore(settings.database_path.with_suffix(".tasks.db"))
+
+    # Create scheduler (will be started by the CLI)
+    scheduler = Scheduler(task_store, _tool_executor)
+
     registry = ToolRegistry()
     for tool in (
         CalculatorTool(),
@@ -54,8 +68,12 @@ def build_application(
         MemoryStoreTool(memory_store),
         MemoryRetrieveTool(memory_store),
         MemoryDeleteTool(memory_store),
+        SchedulerCreateTool(scheduler),
+        SchedulerCancelTool(scheduler),
+        SchedulerListTool(scheduler),
     ):
         registry.register(tool)
+
     if settings.model_provider == "openai":
         if not settings.openai_api_key:
             raise ConfigurationError("ALTERRA_OPENAI_API_KEY is required for the openai provider")
@@ -78,6 +96,7 @@ def build_application(
         )
     else:
         model = LocalModel()
+
     policy = DefaultPolicy(
         denied_tools=settings.policy_denied_tools,
         confirmation_risks=settings.policy_confirmation_risks,
@@ -95,11 +114,23 @@ def build_application(
 
 
 async def run_cli(application: AlterraApplication) -> None:
-    print("Alterra Phase 4. Type 'exit' to quit.")
-    while (text := input("> ").strip()).lower() not in {"exit", "quit"}:
-        if text:
-            reply = await application.handle_message(UserMessage(content=text, session_id="cli"))
-            print(f"Alterra: {reply.content}")
+    # Start scheduler for demo
+    from .scheduler import Scheduler, SQLiteTaskStore
+
+    task_store = SQLiteTaskStore(Settings().database_path.with_suffix(".tasks.db"))
+    scheduler = Scheduler(task_store, lambda name, args: None)
+    await scheduler.start()
+
+    print("Alterra Phase 5. Type 'exit' to quit.")
+    try:
+        while (text := input("> ").strip()).lower() not in {"exit", "quit"}:
+            if text:
+                reply = await application.handle_message(
+                    UserMessage(content=text, session_id="cli")
+                )
+                print(f"Alterra: {reply.content}")
+    finally:
+        await scheduler.stop()
 
 
 def main() -> None:

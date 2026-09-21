@@ -1,16 +1,16 @@
-# Alterra architecture — Phase 4
+# Alterra architecture — Phase 5
 
 ## Current phase
 
-Phase 4 adds the event subsystem and memory tools. Voice, integrations, scheduling, MCP, and
-computer control are deliberately out of scope.
+Phase 5 adds the scheduler subsystem for recurring and one-time tasks. Voice, integrations, MCP,
+and computer control are deliberately out of scope.
 
 ## Boundaries and dependency direction
 
 `main` is the composition root. `core` owns the user-interaction lifecycle and sessions;
 `agent` owns model interaction; `tools` owns definitions, validation, registration, and execution.
-`events` owns the event bus and subscriptions. Tools have no model dependency. Provider-specific
-code is isolated under `agent/providers`.
+`events` owns the event bus and subscriptions. `scheduler` owns task scheduling and execution.
+Tools have no model dependency. Provider-specific code is isolated under `agent/providers`.
 
 ```mermaid
 flowchart TD
@@ -30,6 +30,9 @@ flowchart TD
   Core --> Events[EventBus]
   Events --> Subscribers[Event subscribers]
   External[External sources] -->|Events| Events
+  Core --> Scheduler[Scheduler]
+  Scheduler -->|ToolCall| Dispatcher
+  Scheduler --> Store[(Task Store)]
 ```
 
 ## Contracts
@@ -45,8 +48,31 @@ flowchart TD
 | `MemoryStore`, `MemoryRetriever` | `memory` | Explicit retained facts and retrieval |
 | `Event`, `EventSubscription` | `events` | World-to-Alterra event flow |
 | `EventBus` | `events` | Async publish/subscribe with filters |
+| `Schedule`, `TaskCreate`, `TaskRecord` | `scheduler` | Task definitions and runtime state |
+| `Scheduler`, `TaskStore` | `scheduler` | Task scheduling, persistence, and execution |
 
 ## Subsystems
+
+### Scheduler (Phase 5)
+
+The scheduler subsystem manages recurring and one-time tasks independently of the agent reasoning
+loop. It consists of:
+
+- **Schedule** — Defines when a task runs: `once` (at a specific time), `interval` (every N
+  seconds), or `cron` (cron expression with timezone)
+- **TaskCreate / TaskRecord** — Task definition with name, description, schedule, target tool,
+  arguments, and runtime state (status, run count, next run time, errors)
+- **TaskStore** — SQLite-backed persistence with indexes for due-task queries
+- **Scheduler** — Async loop that wakes at a configurable interval, finds due tasks, invokes their
+  tools via the dispatcher, and updates state
+
+Tasks are created through the `scheduler.create` tool (LOW risk), cancelled with
+`scheduler.cancel` (LOW risk), and listed with `scheduler.list` (NONE risk). The LLM proposes
+task creation; the application policy authorizes it; the scheduler owns execution timing.
+
+The scheduler is decoupled from the agent: the agent never waits for or directly triggers tasks.
+External events (via EventBus) can trigger task creation, but task execution is owned by the
+scheduler loop.
 
 ### Events (Phase 4)
 
@@ -85,6 +111,8 @@ integration operations into the stable `Tool` contract.
 Add an event subscriber by calling `EventBus.subscribe(event_type, handler, subscriber_id="...")`.
 The handler receives `Event` objects; filters can narrow delivery.
 
+Add a scheduled task via `scheduler.create` tool; the scheduler loop handles execution timing.
+
 ## Policy and execution controls
 
 Each tool declares `ToolPolicyMetadata`: an explicit risk level, a confirmation requirement, and
@@ -104,8 +132,8 @@ API adapter. OpenRouter models use their catalog-style slug through `ALTERRA_OPE
 
 ## Known limitations
 
-The local model is intentionally deterministic and only routes the three Phase 1 tools plus the
-memory tools. It is a development provider, not a general conversational model. The OpenAI adapter
+The local model is intentionally deterministic and only routes the Phase 1 tools plus memory and
+scheduler tools. It is a development provider, not a general conversational model. The OpenAI adapter
 translates the provider's function calls at the boundary, leaving the rest of Alterra
-provider-neutral. The event bus is in-memory only; a distributed implementation would require a
-separate backend.
+provider-neutral. The event bus and scheduler are in-memory only; distributed implementations would
+require separate backends. Cron schedule support is a stub; a full cron parser is planned for Phase 6+.
