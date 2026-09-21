@@ -325,7 +325,8 @@ class Scheduler:
         if schedule.type == ScheduleType.ONCE:
             if schedule.run_at:
                 run_at = datetime.fromisoformat(schedule.run_at.replace("Z", "+00:00"))
-                return run_at if run_at > after else None
+                # If the scheduled time is in the past, run at the next tick (now)
+                return run_at if run_at > after else after
             return None
 
         if schedule.type == ScheduleType.INTERVAL:
