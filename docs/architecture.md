@@ -1,15 +1,16 @@
-# Alterra architecture — Phase 3
+# Alterra architecture — Phase 4
 
 ## Current phase
 
-Phase 3 adds an explicit SQLite-backed persistent-memory subsystem. Voice, integrations, events,
-scheduling, MCP, and computer control are deliberately out of scope.
+Phase 4 adds the event subsystem and memory tools. Voice, integrations, scheduling, MCP, and
+computer control are deliberately out of scope.
 
 ## Boundaries and dependency direction
 
 `main` is the composition root. `core` owns the user-interaction lifecycle and sessions;
 `agent` owns model interaction; `tools` owns definitions, validation, registration, and execution.
-Tools have no model dependency. Provider-specific code is isolated under `agent/providers`.
+`events` owns the event bus and subscriptions. Tools have no model dependency. Provider-specific
+code is isolated under `agent/providers`.
 
 ```mermaid
 flowchart TD
@@ -26,6 +27,9 @@ flowchart TD
   Tool -->|ToolResult| Core
   Core --> Agent
   Agent -->|AssistantMessage| CLI
+  Core --> Events[EventBus]
+  Events --> Subscribers[Event subscribers]
+  External[External sources] -->|Events| Events
 ```
 
 ## Contracts
@@ -39,6 +43,37 @@ flowchart TD
 | `ToolRegistry` / `ToolDispatcher` | `tools` | Availability and operational execution boundary |
 | `Policy`, `PolicyDecision`, `ConfirmationHandler` | `core` | Authorization outside the model |
 | `MemoryStore`, `MemoryRetriever` | `memory` | Explicit retained facts and retrieval |
+| `Event`, `EventSubscription` | `events` | World-to-Alterra event flow |
+| `EventBus` | `events` | Async publish/subscribe with filters |
+
+## Subsystems
+
+### Events (Phase 4)
+
+The event subsystem decouples external occurrences from the agent reasoning loop. It consists of:
+
+- **Event** — Immutable record with `type`, `source`, `timestamp`, `payload`, and optional `correlation_id`
+- **EventSubscription** — Binds a subscriber to an event type with optional filter
+- **EventBus** — In-memory async publish/subscribe with exception isolation
+
+Events flow from external sources (Home Assistant, scheduler, computer sensors, MCP servers)
+through the bus to subscribers (core, agent, tools, future voice, UI). The agent never receives
+events directly; the application decides how to translate events into user messages or internal
+actions.
+
+### Memory (Phase 3, tools added in Phase 4)
+
+Persistent memory is distinct from temporary `Session` conversation history and current world
+state. `SQLiteMemoryStore` stores only records explicitly created through its API; it never writes
+conversation turns or model output automatically. Every record has content, source, scope,
+confidence, creator, timestamps, and arbitrary JSON metadata. `MemoryRetriever` provides simple
+case-insensitive text retrieval now; it can be replaced with a semantic implementation without
+changing Core or Agent contracts.
+
+**Memory Tools (Phase 4):**
+- `memory.store` — Store a fact with scope, confidence, metadata (LOW risk)
+- `memory.retrieve` — Search memories by query with scope/limit filters (NONE risk)
+- `memory.delete` — Delete by ID with confirmation (MEDIUM risk, requires confirmation)
 
 ## Adding extensions
 
@@ -46,6 +81,9 @@ Add a simple native capability by implementing `Tool`, giving it a namespaced na
 argument model, then registering it in the composition root. Do not modify `core/application.py`
 or `agent/runtime.py`. Integrations added later belong outside `tools`; their tools should adapt
 integration operations into the stable `Tool` contract.
+
+Add an event subscriber by calling `EventBus.subscribe(event_type, handler, subscriber_id="...")`.
+The handler receives `Event` objects; filters can narrow delivery.
 
 ## Policy and execution controls
 
@@ -55,15 +93,6 @@ policy, obtains confirmation if required, and then delegates execution to the di
 cannot bypass or override any of those steps. `DefaultPolicy` supports configured denied tools,
 risk overrides, and risk levels that require confirmation. The default non-interactive
 confirmation handler rejects requests; the CLI provides an explicit `y`/`yes` prompt.
-
-## Memory
-
-Persistent memory is distinct from temporary `Session` conversation history and current world
-state. `SQLiteMemoryStore` stores only records explicitly created through its API; it never writes
-conversation turns or model output automatically. Every record has content, source, scope,
-confidence, creator, timestamps, and arbitrary JSON metadata. `MemoryRetriever` provides simple
-case-insensitive text retrieval now; it can be replaced with a semantic implementation without
-changing Core or Agent contracts.
 
 ## Configuration and development
 
@@ -75,6 +104,8 @@ API adapter. OpenRouter models use their catalog-style slug through `ALTERRA_OPE
 
 ## Known limitations
 
-The local model is intentionally deterministic and only routes the three Phase 1 tools. It is a
-development provider, not a general conversational model. The OpenAI adapter translates the
-provider's function calls at the boundary, leaving the rest of Alterra provider-neutral.
+The local model is intentionally deterministic and only routes the three Phase 1 tools plus the
+memory tools. It is a development provider, not a general conversational model. The OpenAI adapter
+translates the provider's function calls at the boundary, leaving the rest of Alterra
+provider-neutral. The event bus is in-memory only; a distributed implementation would require a
+separate backend.
