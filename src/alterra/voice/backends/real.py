@@ -85,7 +85,7 @@ class FasterWhisperSTT(STTBackend):
         try:
             segments, info = await asyncio.get_event_loop().run_in_executor(
                 None,
-                lambda: self._model.transcribe(temp_path, beam_size=5, language=None),
+                lambda: self._model.transcribe(temp_path, beam_size=5, language=None),  # type: ignore[union-attr]
             )
             text = " ".join(segment.text for segment in segments).strip()
             return TranscriptionResult(
@@ -200,7 +200,7 @@ class PiperTTS(TTSBackend):
         try:
             await asyncio.get_event_loop().run_in_executor(
                 None,
-                lambda: self._piper.synthesize(text, output_file=temp_path),
+                lambda: self._piper.synthesize(text, output_file=temp_path),  # type: ignore[union-attr]
             )
             with open(temp_path, "rb") as f:
                 return f.read()
@@ -282,7 +282,7 @@ class SileroVAD(VADBackend):
         # Run VAD
         speech_prob = await asyncio.get_event_loop().run_in_executor(
             None,
-            lambda: self._model(audio_data, chunk.sample_rate),
+            lambda: self._model(audio_data, chunk.sample_rate),  # type: ignore[union-attr]
         )
 
         is_speech = speech_prob > self._threshold
@@ -349,13 +349,13 @@ class OpenWakeWord(WakeWordBackend):
         # Run wake word detection
         predictions = await asyncio.get_event_loop().run_in_executor(
             None,
-            lambda: self._model.predict(audio_data),
+            lambda: self._model.predict(audio_data),  # type: ignore[union-attr]
         )
 
         # Check if any model detected the wake word
         detected = False
         max_confidence = 0.0
-        for model_name, prob in predictions.items():
+        for model_name, prob in predictions.items():  # type: ignore[union-attr]
             if prob > self._threshold:
                 detected = True
                 max_confidence = max(max_confidence, prob)
@@ -500,7 +500,7 @@ class SoundDevicePlayer(AudioPlayer):
         if self._stopped:
             return
         loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, lambda: self._stream.write(chunk.data))
+        await loop.run_in_executor(None, lambda: self._stream.write(chunk.data))  # type: ignore[union-attr]
 
     async def flush(self) -> None:
         pass

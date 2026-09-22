@@ -23,8 +23,9 @@ class MemoryDeleteTool(Tool):
     def __init__(self, memory_store: MemoryStore) -> None:
         self._store = memory_store
 
-    async def execute(self, arguments: MemoryDeleteArguments, context: ToolContext) -> dict:
-        deleted = await self._store.delete(arguments.memory_id)
+    async def execute(self, arguments: BaseModel, context: ToolContext) -> dict:
+        validated = self.arguments_model.model_validate(arguments.model_dump())
+        deleted = await self._store.delete(validated.memory_id)  # type: ignore[attr-defined]
         if not deleted:
-            raise ToolError(f"Memory not found: {arguments.memory_id}")
-        return {"success": True, "id": arguments.memory_id}
+            raise ToolError(f"Memory not found: {validated.memory_id}")  # type: ignore[attr-defined]
+        return {"success": True, "id": validated.memory_id}  # type: ignore[attr-defined]

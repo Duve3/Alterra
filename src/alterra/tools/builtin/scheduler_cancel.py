@@ -21,8 +21,9 @@ class SchedulerCancelTool(Tool):
     def __init__(self, scheduler: Scheduler) -> None:
         self._scheduler = scheduler
 
-    async def execute(self, arguments: SchedulerCancelArguments, context: ToolContext) -> dict:
-        cancelled = await self._scheduler.cancel_task(arguments.task_id)
+    async def execute(self, arguments: BaseModel, context: ToolContext) -> dict:
+        validated = self.arguments_model.model_validate(arguments.model_dump())
+        cancelled = await self._scheduler.cancel_task(validated.task_id)  # type: ignore[attr-defined]
         if not cancelled:
-            raise ToolError(f"Task not found: {arguments.task_id}")
-        return {"success": True, "id": arguments.task_id}
+            raise ToolError(f"Task not found: {validated.task_id}")  # type: ignore[attr-defined]
+        return {"success": True, "id": validated.task_id}  # type: ignore[attr-defined]

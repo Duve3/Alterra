@@ -26,12 +26,13 @@ class SchedulerListTool(Tool):
     def __init__(self, scheduler: Scheduler) -> None:
         self._scheduler = scheduler
 
-    async def execute(self, arguments: SchedulerListArguments, context: ToolContext) -> dict:
+    async def execute(self, arguments: BaseModel, context: ToolContext) -> dict:
+        validated = self.arguments_model.model_validate(arguments.model_dump())
         filter = TaskFilter(
-            status=arguments.status,
-            name_contains=arguments.name_contains,
-            limit=arguments.limit,
-            offset=arguments.offset,
+            status=validated.status,  # type: ignore[attr-defined]
+            name_contains=validated.name_contains,  # type: ignore[attr-defined]
+            limit=validated.limit,  # type: ignore[attr-defined]
+            offset=validated.offset,  # type: ignore[attr-defined]
         )
         tasks = await self._scheduler.list_tasks(filter)
         return {

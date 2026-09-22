@@ -49,24 +49,25 @@ class SchedulerCreateTool(Tool):
     def __init__(self, scheduler: Scheduler) -> None:
         self._scheduler = scheduler
 
-    async def execute(self, arguments: SchedulerCreateArguments, context: ToolContext) -> dict:
+    async def execute(self, arguments: BaseModel, context: ToolContext) -> dict:
+        validated = self.arguments_model.model_validate(arguments.model_dump())
         schedule = Schedule(
-            type=arguments.schedule.type,
-            run_at=arguments.schedule.run_at,
-            seconds=arguments.schedule.seconds,
-            cron_expression=arguments.schedule.cron_expression,
-            timezone=arguments.schedule.timezone,
-            start_at=arguments.schedule.start_at,
-            end_at=arguments.schedule.end_at,
-            max_runs=arguments.schedule.max_runs,
+            type=validated.schedule.type,  # type: ignore[attr-defined]
+            run_at=validated.schedule.run_at,  # type: ignore[attr-defined]
+            seconds=validated.schedule.seconds,  # type: ignore[attr-defined]
+            cron_expression=validated.schedule.cron_expression,  # type: ignore[attr-defined]
+            timezone=validated.schedule.timezone,  # type: ignore[attr-defined]
+            start_at=validated.schedule.start_at,  # type: ignore[attr-defined]
+            end_at=validated.schedule.end_at,  # type: ignore[attr-defined]
+            max_runs=validated.schedule.max_runs,  # type: ignore[attr-defined]
         )
         create = TaskCreate(
-            name=arguments.name,
-            description=arguments.description,
+            name=validated.name,  # type: ignore[attr-defined]
+            description=validated.description,  # type: ignore[attr-defined]
             schedule=schedule,
-            tool_name=arguments.tool_name,
-            tool_arguments=arguments.tool_arguments,
-            metadata=arguments.metadata,
+            tool_name=validated.tool_name,  # type: ignore[attr-defined]
+            tool_arguments=validated.tool_arguments,  # type: ignore[attr-defined]
+            metadata=validated.metadata,  # type: ignore[attr-defined]
         )
         task = await self._scheduler.create_task(create)
         return {

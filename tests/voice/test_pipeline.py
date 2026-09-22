@@ -57,7 +57,7 @@ async def test_pipeline_wake_word_detection(pipeline: VoicePipeline) -> None:
             return WakeWordResult(detected=True, confidence=0.9, model_name="mock")
         return WakeWordResult(detected=False, confidence=0.0, model_name="mock")
 
-    pipeline._wake_word.process = mock_process
+    pipeline._wake_word.process = mock_process  # type: ignore[union-attr]
 
     # Send a chunk to trigger wake word
     chunk = AudioChunk(data=b"test", sample_rate=16000, channels=1)
@@ -85,7 +85,7 @@ async def test_pipeline_speech_detection(pipeline: VoicePipeline) -> None:
             return WakeWordResult(detected=True, confidence=0.9, model_name="mock")
         return WakeWordResult(detected=False, confidence=0.0, model_name="mock")
 
-    pipeline._wake_word.process = mock_process
+    pipeline._wake_word.process = mock_process  # type: ignore[union-attr]
 
     # Send a chunk to trigger wake word
     chunk = AudioChunk(data=b"test", sample_rate=16000, channels=1)

@@ -39,13 +39,14 @@ class MemoryRetrieveTool(Tool):
     def __init__(self, memory_store: MemoryStore) -> None:
         self._store = memory_store
 
-    async def execute(self, arguments: MemoryRetrieveArguments, context: ToolContext) -> dict:
-        sanitized_query = _sanitize_like_query(arguments.query)
+    async def execute(self, arguments: BaseModel, context: ToolContext) -> dict:
+        validated = self.arguments_model.model_validate(arguments.model_dump())
+        sanitized_query = _sanitize_like_query(validated.query)  # type: ignore[attr-defined]
         records = await self._store.search(
             query=sanitized_query,
-            scope=arguments.scope,
-            scope_id=arguments.scope_id,
-            limit=arguments.limit,
+            scope=validated.scope,  # type: ignore[attr-defined]
+            scope_id=validated.scope_id,  # type: ignore[attr-defined]
+            limit=validated.limit,  # type: ignore[attr-defined]
         )
         return {
             "results": [

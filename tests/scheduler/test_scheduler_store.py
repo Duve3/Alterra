@@ -74,6 +74,7 @@ async def test_store_update_task(database_path) -> None:
     assert updated.status == TaskStatus.RUNNING
 
     retrieved = await store.get(task.id)
+    assert retrieved is not None
     assert retrieved.status == TaskStatus.RUNNING
 
 
@@ -122,7 +123,6 @@ async def test_store_list_tasks(database_path) -> None:
 async def test_store_get_due_tasks(database_path) -> None:
     store = SQLiteTaskStore(database_path)
     from datetime import UTC, datetime, timedelta
-
 
     past = datetime.now(UTC) - timedelta(minutes=1)
     future = datetime.now(UTC) + timedelta(minutes=1)
@@ -315,6 +315,7 @@ async def test_scheduler_execute_task_success(database_path) -> None:
 
     # Task should have been executed
     retrieved = await scheduler.get_task(task.id)
+    assert retrieved is not None
     assert retrieved.status == TaskStatus.COMPLETED
     assert retrieved.run_count == 1
     assert len(executed) == 1
@@ -342,6 +343,7 @@ async def test_scheduler_execute_task_failure(database_path) -> None:
     await scheduler.stop()
 
     retrieved = await scheduler.get_task(task.id)
+    assert retrieved is not None
     assert retrieved.status == TaskStatus.FAILED
     assert retrieved.last_error == "tool failed"
     assert retrieved.run_count == 1
@@ -370,6 +372,7 @@ async def test_scheduler_interval_task_multiple_runs(database_path) -> None:
     await scheduler.stop()
 
     retrieved = await scheduler.get_task(task.id)
+    assert retrieved is not None
     assert retrieved.status == TaskStatus.COMPLETED
     assert retrieved.run_count == 3
     assert len(executed) == 3
@@ -412,7 +415,8 @@ async def test_scheduler_compute_next_run_unknown_type(database_path) -> None:
         cron_expression = None
         start_at = None
 
-    next_run = scheduler._compute_next_run(MockSchedule(), datetime.now(UTC))
+    # Use type ignore since we're intentionally passing an invalid schedule type
+    next_run = scheduler._compute_next_run(MockSchedule(), datetime.now(UTC))  # type: ignore[arg-type]
     assert next_run is None
 
 
@@ -538,6 +542,7 @@ async def test_scheduler_execute_task_next_run_none(database_path) -> None:
     await scheduler.stop()
 
     retrieved = await scheduler.get_task(task.id)
+    assert retrieved is not None
     assert retrieved.status == TaskStatus.COMPLETED
     assert retrieved.run_count == 1
     assert retrieved.next_run_at is None

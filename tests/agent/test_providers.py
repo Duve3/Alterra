@@ -38,8 +38,11 @@ async def test_local_model_formats_tool_results() -> None:
     generic = await model.generate(
         [ToolResult(tool_call_id="1", name="x", success=True, data=3)], []
     )
+    assert failed.message is not None
     assert failed.message.content == "I couldn't complete that: no"
+    assert timed.message is not None
     assert timed.message.content == "now"
+    assert generic.message is not None
     assert generic.message.content == "3"
 
 
@@ -78,8 +81,11 @@ async def test_local_model_formats_memory_retrieve_results() -> None:
         ],
         [],
     )
+    assert empty.message is not None
     assert "couldn't find" in empty.message.content.lower()
+    assert single.message is not None
     assert single.message.content == "I like coffee"
+    assert multiple.message is not None
     assert "Here are the matching memories" in multiple.message.content
     assert "- a" in multiple.message.content
     assert "- b" in multiple.message.content
@@ -93,7 +99,9 @@ async def test_local_model_formats_memory_store_and_delete_results() -> None:
     delete = await model.generate(
         [ToolResult(tool_call_id="1", name="memory.delete", success=True, data={})], []
     )
+    assert store.message is not None
     assert "remember" in store.message.content.lower()
+    assert delete.message is not None
     assert "deleted" in delete.message.content.lower()
 
 
@@ -160,7 +168,9 @@ async def test_openai_adapter_translates_function_calls_and_text(monkeypatch) ->
     )
     text = await model.generate([UserMessage(content="hi")], [])
     assert call.tool_calls[0].name == "echo.repeat"
+    assert text.message is not None
     assert text.message.content == "hello"
+    assert FakeClient.captured is not None
     assert FakeClient.captured[1]["json"]["tools"] == []
 
 
@@ -168,9 +178,9 @@ async def test_openai_adapter_surfaces_errors_and_empty_messages(monkeypatch) ->
     monkeypatch.setattr("alterra.agent.providers.openai.httpx.AsyncClient", FakeClient)
     model = OpenAIResponsesModel(api_key="key", model="model")
     FakeClient.response = FakeResponse({"output": []})
-    assert (await model.generate([UserMessage(content="hi")], [])).message.content.startswith(
-        "I was unable"
-    )
+    result = await model.generate([UserMessage(content="hi")], [])
+    assert result.message is not None
+    assert result.message.content.startswith("I was unable")
     FakeClient.response = FakeResponse({}, status_code=401)
     with pytest.raises(AgentError, match="401"):
         await model.generate([UserMessage(content="hi")], [])
@@ -182,4 +192,5 @@ async def test_openai_adapter_serializes_tool_results(monkeypatch) -> None:
     await OpenAIResponsesModel(api_key="key", model="model").generate(
         [ToolResult(tool_call_id="call", name="echo.repeat", success=True, data="hi")], []
     )
+    assert FakeClient.captured is not None
     assert FakeClient.captured[1]["json"]["input"][0]["type"] == "function_call_output"

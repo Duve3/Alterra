@@ -22,7 +22,7 @@ class HighRiskTool(Tool):
     arguments_model = EmptyArguments
     metadata = ToolPolicyMetadata(risk_level=RiskLevel.HIGH)
 
-    async def execute(self, arguments: EmptyArguments, context: ToolContext) -> str:
+    async def execute(self, arguments: BaseModel, context: ToolContext) -> str:
         return "executed"
 
 
@@ -31,7 +31,9 @@ class OneCallModel:
         if len(messages) == 1:
             return AgentResponse(tool_calls=[ToolCall(name="test.high_risk")])
         result = messages[-1]
-        return AgentResponse(message=AssistantMessage(content=str(result.data if result.success else result.error)))
+        return AgentResponse(
+            message=AssistantMessage(content=str(result.data if result.success else result.error))
+        )
 
 
 class RecordingConfirmation:
@@ -44,14 +46,24 @@ class RecordingConfirmation:
         return self.answer
 
 
-def build_policy_application(policy: DefaultPolicy, confirmation: RecordingConfirmation) -> AlterraApplication:
+def build_policy_application(
+    policy: DefaultPolicy, confirmation: RecordingConfirmation
+) -> AlterraApplication:
     registry = ToolRegistry()
     registry.register(HighRiskTool())
-    return AlterraApplication(AgentRuntime(OneCallModel(), registry), registry, ToolDispatcher(registry), policy, confirmation)
+    return AlterraApplication(
+        AgentRuntime(OneCallModel(), registry),
+        registry,
+        ToolDispatcher(registry),
+        policy,
+        confirmation,
+    )
 
 
 async def test_policy_denial_prevents_execution() -> None:
-    app = build_policy_application(DefaultPolicy(denied_tools={"test.high_risk"}), RecordingConfirmation(True))
+    app = build_policy_application(
+        DefaultPolicy(denied_tools={"test.high_risk"}), RecordingConfirmation(True)
+    )
     reply = await app.handle_message(UserMessage(content="do it"))
     assert "Policy denies test.high_risk" in reply.content
 
@@ -80,7 +92,9 @@ async def test_unknown_tool_becomes_an_operational_result() -> None:
                 return AgentResponse(tool_calls=[ToolCall(name="unknown.tool")])
             return AgentResponse(message=AssistantMessage(content=messages[-1].error))
 
-    app = AlterraApplication(AgentRuntime(UnknownModel(), registry), registry, ToolDispatcher(registry), DefaultPolicy())
+    app = AlterraApplication(
+        AgentRuntime(UnknownModel(), registry), registry, ToolDispatcher(registry), DefaultPolicy()
+    )
     assert "not available" in (await app.handle_message(UserMessage(content="x"))).content
 
 
@@ -95,8 +109,16 @@ async def test_application_rejects_empty_agent_response_and_tool_loop_limit() ->
         async def generate(self, messages, tools) -> AgentResponse:
             return AgentResponse(tool_calls=[ToolCall(name="unknown.tool")])
 
-    empty = AlterraApplication(AgentRuntime(EmptyModel(), registry), registry, ToolDispatcher(registry), DefaultPolicy())
-    looping = AlterraApplication(AgentRuntime(LoopModel(), registry), registry, ToolDispatcher(registry), DefaultPolicy(), max_tool_rounds=1)
+    empty = AlterraApplication(
+        AgentRuntime(EmptyModel(), registry), registry, ToolDispatcher(registry), DefaultPolicy()
+    )
+    looping = AlterraApplication(
+        AgentRuntime(LoopModel(), registry),
+        registry,
+        ToolDispatcher(registry),
+        DefaultPolicy(),
+        max_tool_rounds=1,
+    )
     with pytest.raises(AgentError, match="neither"):
         await empty.handle_message(UserMessage(content="x"))
     with pytest.raises(AgentError, match="round limit"):
@@ -104,13 +126,31 @@ async def test_application_rejects_empty_agent_response_and_tool_loop_limit() ->
 
 
 async def test_rejecting_confirmation_handler_denies() -> None:
-    from alterra.core.policy import RejectingConfirmationHandler
+    from alterra.core.policy import (
+        RejectingConfirmationHandler,
+        PolicyRequest,
+        ToolPolicyMetadata,
+        RiskLevel,
+    )
 
-    assert await RejectingConfirmationHandler().confirm(None) is False
+    request = PolicyRequest(
+        tool_name="test.tool",
+        metadata=ToolPolicyMetadata(risk_level=RiskLevel.HIGH),
+        arguments={},
+        session_id="test",
+    )
+    assert await RejectingConfirmationHandler().confirm(request) is False
 
 
 def test_policy_honors_risk_overrides_and_explicit_confirmation() -> None:
-    request = type("Request", (), {"tool_name": "test.low", "metadata": ToolPolicyMetadata(risk_level=RiskLevel.LOW, requires_confirmation=True), "arguments": {}, "session_id": "s"})()
+    from alterra.core.policy import PolicyRequest, ToolPolicyMetadata, RiskLevel
+
+    request = PolicyRequest(
+        tool_name="test.low",
+        metadata=ToolPolicyMetadata(risk_level=RiskLevel.LOW, requires_confirmation=True),
+        arguments={},
+        session_id="s",
+    )
     decision = DefaultPolicy(risk_overrides={"test.low": RiskLevel.HIGH}).evaluate(request)
     assert decision.allowed is True
     assert decision.requires_confirmation is True

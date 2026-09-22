@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, ClassVar
+from typing import Any, ClassVar, TypeVar
 
 from pydantic import BaseModel
 
@@ -12,6 +12,9 @@ from ..core.policy import ToolPolicyMetadata
 
 class ToolContext(BaseModel):
     session_id: str
+
+
+ArgumentsT = TypeVar("ArgumentsT", bound=BaseModel)
 
 
 class Tool(ABC):

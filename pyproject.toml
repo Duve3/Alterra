@@ -11,6 +11,7 @@ dependencies = [
     "httpx>=0.28.1",
     "mcp[cli]>=2.2.0",
     "numpy>=2.5.3",
+    "openwakeword>=0.4.0",
     "piper>=0.15.1",
     "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",

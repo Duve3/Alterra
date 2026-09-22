@@ -8,7 +8,9 @@ from alterra.main import ConsoleConfirmationHandler, build_application
 from alterra.memory import SQLiteMemoryStore
 
 
-@pytest.mark.parametrize(("prompt", "expected"), [("What is 15 * 4?", "60"), ("Echo \"hello Alterra\"", "hello Alterra")])
+@pytest.mark.parametrize(
+    ("prompt", "expected"), [("What is 15 * 4?", "60"), ('Echo "hello Alterra"', "hello Alterra")]
+)
 async def test_end_to_end_local_tool_loop(prompt: str, expected: str) -> None:
     application = build_application(Settings(model_provider="local"))
     reply = await application.handle_message(UserMessage(content=prompt, session_id="test"))
@@ -28,7 +30,11 @@ def test_openrouter_profile_requires_a_key() -> None:
 
 def test_openrouter_profile_builds_without_touching_core_contracts() -> None:
     application = build_application(
-        Settings(model_provider="openrouter", openrouter_api_key="test-key", openrouter_model="openai/gpt-5")
+        Settings(
+            model_provider="openrouter",
+            openrouter_api_key="test-key",
+            openrouter_model="openai/gpt-5",
+        )
     )
     assert application is not None
 
@@ -36,21 +42,28 @@ def test_openrouter_profile_builds_without_touching_core_contracts() -> None:
 def test_openai_profile_requires_a_key_and_builds_when_configured() -> None:
     with pytest.raises(ConfigurationError, match="ALTERRA_OPENAI_API_KEY"):
         build_application(Settings(model_provider="openai", openai_api_key=None))
-    assert build_application(Settings(model_provider="openai", openai_api_key="test-key")) is not None
+    assert (
+        build_application(Settings(model_provider="openai", openai_api_key="test-key")) is not None
+    )
 
 
 async def test_console_confirmation_accepts_only_explicit_yes() -> None:
-    request = type(
-        "Request",
-        (),
-        {"tool_name": "test.tool", "metadata": ToolPolicyMetadata(risk_level=RiskLevel.HIGH), "arguments": {}},
-    )()
+    from alterra.core.policy import PolicyRequest
+
+    request = PolicyRequest(
+        tool_name="test.tool",
+        metadata=ToolPolicyMetadata(risk_level=RiskLevel.HIGH),
+        arguments={},
+        session_id="test",
+    )
     assert await ConsoleConfirmationHandler(lambda _: "yes").confirm(request) is True
     assert await ConsoleConfirmationHandler(lambda _: "").confirm(request) is False
 
 
 def test_application_composes_explicit_memory_service(tmp_path) -> None:
-    application = build_application(Settings(model_provider="local", database_path=tmp_path / "memory.db"))
+    application = build_application(
+        Settings(model_provider="local", database_path=tmp_path / "memory.db")
+    )
     assert isinstance(application.memory, SQLiteMemoryStore)
 
 
@@ -68,6 +81,10 @@ def test_main_composes_cli(monkeypatch) -> None:
 
     captured = {}
     monkeypatch.setattr(main_module, "Settings", lambda: Settings(model_provider="local"))
-    monkeypatch.setattr(main_module.asyncio, "run", lambda coroutine: (coroutine.close(), captured.setdefault("run", True)))
+    monkeypatch.setattr(
+        main_module.asyncio,
+        "run",
+        lambda coroutine: (coroutine.close(), captured.setdefault("run", True)),
+    )
     main_module.main()
     assert captured["run"] is True

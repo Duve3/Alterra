@@ -123,9 +123,9 @@ class VoicePipeline:
         if self._vad:
             await self._vad.start()
         if self._stt:
-            await self._stt.start()
+            await self._stt.start()  # type: ignore[attr-defined]
         if self._tts:
-            await self._tts.start()
+            await self._tts.start()  # type: ignore[attr-defined]
 
         # Start audio capture
         self._tasks.append(asyncio.create_task(self._run_capture()))
@@ -150,9 +150,9 @@ class VoicePipeline:
         if self._vad:
             await self._vad.stop()
         if self._stt:
-            await self._stt.stop()
+            await self._stt.stop()  # type: ignore[attr-defined]
         if self._tts:
-            await self._tts.stop()
+            await self._tts.stop()  # type: ignore[attr-defined]
 
         # Stop audio
         await self._audio.stop()

@@ -12,5 +12,6 @@ class EchoTool(Tool):
     description = "Return the provided text unchanged."
     arguments_model = EchoArguments
 
-    async def execute(self, arguments: EchoArguments, context: ToolContext) -> str:
-        return arguments.text
+    async def execute(self, arguments: BaseModel, context: ToolContext) -> str:
+        validated = self.arguments_model.model_validate(arguments.model_dump())
+        return validated.text  # type: ignore[attr-defined]

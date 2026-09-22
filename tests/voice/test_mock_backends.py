@@ -139,4 +139,6 @@ async def test_audio_player(mock_audio: MockAudioBackend) -> None:
     await player.write(AudioChunk(data=b"test", sample_rate=16000, channels=1))
     await player.flush()
     await player.stop()
-    assert player._stopped is True
+    # Check that stop was called by verifying the player is stopped
+    # (MockAudioPlayer sets _stopped = True on stop())
+    assert getattr(player, "_stopped", False) is True

@@ -21,7 +21,9 @@ def dispatcher() -> ToolDispatcher:
 
 
 async def test_dispatcher_validates_and_executes(dispatcher: ToolDispatcher) -> None:
-    result = await dispatcher.dispatch(ToolCall(name="calculator.evaluate", arguments={"expression": "15 * 4"}), session_id="test")
+    result = await dispatcher.dispatch(
+        ToolCall(name="calculator.evaluate", arguments={"expression": "15 * 4"}), session_id="test"
+    )
     assert result.success is True
     assert result.data == 60
 
@@ -36,7 +38,10 @@ async def test_calculator_supports_unary_operators() -> None:
 
 
 async def test_dispatcher_returns_operational_failure(dispatcher: ToolDispatcher) -> None:
-    result = await dispatcher.dispatch(ToolCall(name="calculator.evaluate", arguments={"expression": "__import__('os')"}), session_id="test")
+    result = await dispatcher.dispatch(
+        ToolCall(name="calculator.evaluate", arguments={"expression": "__import__('os')"}),
+        session_id="test",
+    )
     assert result.success is False
     assert result.error is not None
 
@@ -51,7 +56,7 @@ class SlowTool(Tool):
     arguments_model = EmptyArguments
     metadata = ToolPolicyMetadata(risk_level=RiskLevel.LOW, timeout_seconds=0.01)
 
-    async def execute(self, arguments: EmptyArguments, context: ToolContext) -> str:
+    async def execute(self, arguments: BaseModel, context: ToolContext) -> str:
         await asyncio.sleep(0.1)
         return "too late"
 

@@ -33,15 +33,16 @@ class MemoryStoreTool(Tool):
     def __init__(self, memory_store: MemoryStore) -> None:
         self._store = memory_store
 
-    async def execute(self, arguments: MemoryStoreArguments, context: ToolContext) -> dict:
+    async def execute(self, arguments: BaseModel, context: ToolContext) -> dict:
+        validated = self.arguments_model.model_validate(arguments.model_dump())
         memory = MemoryCreate(
-            content=arguments.content,
+            content=validated.content,  # type: ignore[attr-defined]
             source=MemorySource.ASSISTANT,
-            scope=arguments.scope,
-            scope_id=arguments.scope_id,
-            confidence=arguments.confidence,
+            scope=validated.scope,  # type: ignore[attr-defined]
+            scope_id=validated.scope_id,  # type: ignore[attr-defined]
+            confidence=validated.confidence,  # type: ignore[attr-defined]
             created_by="assistant",
-            metadata=arguments.metadata,
+            metadata=validated.metadata,  # type: ignore[attr-defined]
         )
         record = await self._store.create(memory)
         return {
