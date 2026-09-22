@@ -350,7 +350,6 @@ async def test_scheduler_execute_task_failure(database_path) -> None:
 
 
 async def test_scheduler_interval_task_multiple_runs(database_path) -> None:
-    from datetime import UTC, datetime
 
     from alterra.scheduler import Scheduler
 
@@ -362,7 +361,6 @@ async def test_scheduler_interval_task_multiple_runs(database_path) -> None:
     store = SQLiteTaskStore(database_path)
     scheduler = Scheduler(store, executor, tick_interval=0.05)
 
-    now = datetime.now(UTC)
     schedule = Schedule(type=ScheduleType.INTERVAL, seconds=0.1, max_runs=3)
     create = TaskCreate(name="interval", schedule=schedule, tool_name="x", tool_arguments={})
     task = await scheduler.create_task(create)
@@ -518,7 +516,6 @@ async def test_scheduler_run_loop_exception_handling(database_path) -> None:
 
 async def test_scheduler_execute_task_next_run_none(database_path) -> None:
     """Test _execute_task when _compute_next_run returns None for interval task."""
-    from datetime import UTC, datetime
 
     from alterra.scheduler import Scheduler
 
@@ -532,7 +529,6 @@ async def test_scheduler_execute_task_next_run_none(database_path) -> None:
 
     # Create an interval task where _compute_next_run will return None
     # (e.g., max_runs reached)
-    now = datetime.now(UTC)
     schedule = Schedule(type=ScheduleType.INTERVAL, seconds=0.1, max_runs=1)
     create = TaskCreate(name="once interval", schedule=schedule, tool_name="x", tool_arguments={})
     task = await scheduler.create_task(create)

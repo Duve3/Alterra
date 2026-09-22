@@ -8,15 +8,14 @@ import tempfile
 import wave
 from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import Optional
 
 from ..core import (
     AudioBackend,
     AudioChunk,
     AudioPlayer,
     STTBackend,
-    TTSBackend,
     TranscriptionResult,
+    TTSBackend,
     VADBackend,
     VADResult,
     WakeWordBackend,
@@ -32,7 +31,7 @@ class FasterWhisperSTT(STTBackend):
         model_size: str = "base",
         device: str = "auto",
         compute_type: str = "auto",
-        download_root: Optional[str] = None,
+        download_root: str | None = None,
     ) -> None:
         self._model_size = model_size
         self._device = device
@@ -130,7 +129,7 @@ class PiperTTS(TTSBackend):
     def __init__(
         self,
         voice: str = "en_US-lessac-medium",
-        model_dir: Optional[str] = None,
+        model_dir: str | None = None,
         use_cuda: bool = False,
     ) -> None:
         self._voice = voice
@@ -185,7 +184,7 @@ class PiperTTS(TTSBackend):
         self._running = False
         self._piper = None
 
-    async def synthesize(self, text: str, voice: Optional[str] = None) -> bytes:
+    async def synthesize(self, text: str, voice: str | None = None) -> bytes:
         if not self._running:
             await self.start()
 
@@ -202,17 +201,16 @@ class PiperTTS(TTSBackend):
                 None,
                 lambda: self._piper.synthesize(text, output_file=temp_path),  # type: ignore[union-attr]
             )
-            with open(temp_path, "rb") as f:
-                return f.read()
+            return await asyncio.get_event_loop().run_in_executor(
+                None, lambda: open(temp_path, "rb").read()
+            )
         finally:
             try:
                 os.unlink(temp_path)
             except OSError:
                 pass
 
-    async def synthesize_stream(
-        self, text: str, voice: Optional[str] = None
-    ) -> AsyncIterator[bytes]:
+    async def synthesize_stream(self, text: str, voice: str | None = None) -> AsyncIterator[bytes]:
         # Piper doesn't easily support streaming, so synthesize full then chunk
         audio = await self.synthesize(text, voice)
         chunk_size = 4096
@@ -246,7 +244,7 @@ class SileroVAD(VADBackend):
         from silero_vad import load_silero_vad
 
         loop = asyncio.get_event_loop()
-        self._model, _ = await loop.run_in_executor(
+        self._model = await loop.run_in_executor(
             None,
             lambda: load_silero_vad(),
         )
@@ -263,6 +261,7 @@ class SileroVAD(VADBackend):
         # Silero VAD expects 16kHz mono 16-bit PCM
         # Convert if needed
         import numpy as np
+        import torch
 
         audio_data = np.frombuffer(chunk.data, dtype=np.int16).astype(np.float32) / 32768.0
 
@@ -282,7 +281,7 @@ class SileroVAD(VADBackend):
         # Run VAD
         speech_prob = await asyncio.get_event_loop().run_in_executor(
             None,
-            lambda: self._model(audio_data, chunk.sample_rate),  # type: ignore[union-attr]
+            lambda: float(self._model(torch.from_numpy(audio_data), 16000)[0][0]),  # type: ignore[union-attr]
         )
 
         is_speech = speech_prob > self._threshold
@@ -317,7 +316,7 @@ class OpenWakeWord(WakeWordBackend):
         loop = asyncio.get_event_loop()
         self._model = await loop.run_in_executor(
             None,
-            lambda: Model(wakeword_models=[self._model_name]),
+            lambda: Model(wakeword_model_paths=[self._model_name]),
         )
         self._running = True
 
@@ -355,7 +354,7 @@ class OpenWakeWord(WakeWordBackend):
         # Check if any model detected the wake word
         detected = False
         max_confidence = 0.0
-        for model_name, prob in predictions.items():  # type: ignore[union-attr]
+        for prob in predictions.values():  # type: ignore[union-attr]
             if prob > self._threshold:
                 detected = True
                 max_confidence = max(max_confidence, prob)
@@ -372,8 +371,8 @@ class SoundDeviceBackend(AudioBackend):
 
     def __init__(
         self,
-        input_device_index: Optional[int] = None,
-        output_device_index: Optional[int] = None,
+        input_device_index: int | None = None,
+        output_device_index: int | None = None,
     ) -> None:
         self._input_device_index = input_device_index
         self._output_device_index = output_device_index
@@ -435,7 +434,7 @@ class SoundDeviceBackend(AudioBackend):
                 try:
                     chunk = await asyncio.wait_for(self._capture_queue.get(), timeout=0.1)
                     yield chunk
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     continue
         finally:
             if self._input_stream:

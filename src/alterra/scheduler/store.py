@@ -279,8 +279,11 @@ class Scheduler:
         while self._running:
             try:
                 await self._tick()
-            except Exception:
-                pass  # Log in production
+            except asyncio.CancelledError:
+                raise
+            except Exception:  # noqa: BLE001, S110
+                # Log in production; swallow to keep scheduler resilient
+                pass
             await asyncio.sleep(self._tick_interval)
 
     async def _tick(self) -> None:
@@ -299,7 +302,8 @@ class Scheduler:
             await self._execute_tool(task.tool_name, task.tool_arguments)
             task.status = TaskStatus.COMPLETED
             task.last_error = None
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
+            # Catch all exceptions from tool execution to record failure
             task.status = TaskStatus.FAILED
             task.last_error = str(e)
 
@@ -324,7 +328,7 @@ class Scheduler:
     def _compute_next_run(self, schedule: Schedule, after: datetime) -> datetime | None:
         if schedule.type == ScheduleType.ONCE:
             if schedule.run_at:
-                run_at = datetime.fromisoformat(schedule.run_at.replace("Z", "+00:00"))
+                run_at = datetime.fromisoformat(schedule.run_at)
                 # If the scheduled time is in the past, run at the next tick (now)
                 return max(after, run_at)
             return None
@@ -333,7 +337,7 @@ class Scheduler:
             if schedule.seconds is None:
                 return None
             if schedule.start_at:
-                start = datetime.fromisoformat(schedule.start_at.replace("Z", "+00:00"))
+                start = datetime.fromisoformat(schedule.start_at)
                 if after < start:
                     return start
                 elapsed = (after - start).total_seconds()

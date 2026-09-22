@@ -111,6 +111,56 @@ async def test_local_model_routes_forget_memory() -> None:
     assert "memory ID" in response.message.content
 
 
+async def test_local_model_formats_voice_tool_results() -> None:
+    model = LocalModel()
+    status = await model.generate(
+        [
+            ToolResult(
+                tool_call_id="1",
+                name="voice.status",
+                success=True,
+                data={"running": True, "state": "listening"},
+            )
+        ],
+        [],
+    )
+    assert status.message is not None
+    assert "running" in status.message.content.lower()
+
+    speak = await model.generate(
+        [ToolResult(tool_call_id="1", name="voice.speak", success=True, data={})], []
+    )
+    assert speak.message is not None
+    assert "done speaking" in speak.message.content.lower()
+
+    listen = await model.generate(
+        [ToolResult(tool_call_id="1", name="voice.listen", success=True, data={})], []
+    )
+    assert listen.message is not None
+    assert "listening" in listen.message.content.lower()
+
+    stop = await model.generate(
+        [ToolResult(tool_call_id="1", name="voice.stop", success=True, data={})], []
+    )
+    assert stop.message is not None
+    assert "stopped" in stop.message.content.lower()
+
+
+@pytest.mark.parametrize(
+    ("message", "expected_tool"),
+    [
+        (UserMessage(content="voice status"), "voice.status"),
+        (UserMessage(content="voice speak hello world"), "voice.speak"),
+        (UserMessage(content="voice listen for 5 seconds"), "voice.listen"),
+        (UserMessage(content="voice stop"), "voice.stop"),
+    ],
+)
+async def test_local_model_routes_voice_tools(message, expected_tool) -> None:
+    response = await LocalModel().generate([message], [])
+    assert response.tool_calls is not None
+    assert response.tool_calls[0].name == expected_tool
+
+
 def test_agent_response_rejects_invalid_output_shapes() -> None:
     with pytest.raises(ValueError):
         AgentResponse()

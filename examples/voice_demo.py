@@ -8,9 +8,10 @@ wake word → VAD → STT → TTS pipeline using mock backends.
 from __future__ import annotations
 
 import asyncio
+
 from alterra.core.config import Settings
-from alterra.main import build_application
 from alterra.core.messages import UserMessage
+from alterra.main import build_application
 
 
 async def demo_voice_pipeline() -> None:

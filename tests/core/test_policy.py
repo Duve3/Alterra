@@ -127,10 +127,10 @@ async def test_application_rejects_empty_agent_response_and_tool_loop_limit() ->
 
 async def test_rejecting_confirmation_handler_denies() -> None:
     from alterra.core.policy import (
-        RejectingConfirmationHandler,
         PolicyRequest,
-        ToolPolicyMetadata,
+        RejectingConfirmationHandler,
         RiskLevel,
+        ToolPolicyMetadata,
     )
 
     request = PolicyRequest(
@@ -143,7 +143,7 @@ async def test_rejecting_confirmation_handler_denies() -> None:
 
 
 def test_policy_honors_risk_overrides_and_explicit_confirmation() -> None:
-    from alterra.core.policy import PolicyRequest, ToolPolicyMetadata, RiskLevel
+    from alterra.core.policy import PolicyRequest, RiskLevel, ToolPolicyMetadata
 
     request = PolicyRequest(
         tool_name="test.low",

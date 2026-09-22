@@ -1,6 +1,5 @@
 """Tests for voice mock backends."""
 
-import asyncio
 import pytest
 
 from alterra.voice.backends.mock import (

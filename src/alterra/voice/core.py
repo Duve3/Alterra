@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import AsyncIterator, Optional
-from uuid import uuid4
 
 
 @dataclass
@@ -25,7 +24,7 @@ class TranscriptionResult:
 
     text: str
     confidence: float
-    language: Optional[str] = None
+    language: str | None = None
     duration_seconds: float = 0.0
 
 
@@ -126,10 +125,10 @@ class TTSBackend(ABC):
         """Backend identifier."""
 
     @abstractmethod
-    async def synthesize(self, text: str, voice: Optional[str] = None) -> bytes:
+    async def synthesize(self, text: str, voice: str | None = None) -> bytes:
         """Synthesize text to audio bytes."""
 
-    def synthesize_stream(self, text: str, voice: Optional[str] = None) -> AsyncIterator[bytes]:
+    def synthesize_stream(self, text: str, voice: str | None = None) -> AsyncIterator[bytes]:
         """Synthesize text to streaming audio chunks (optional)."""
 
         # Default implementation: not implemented
@@ -169,7 +168,7 @@ class AudioBackend(ABC):
         return _empty()
 
     @abstractmethod
-    async def start_playback(self, sample_rate: int, channels: int) -> "AudioPlayer":
+    async def start_playback(self, sample_rate: int, channels: int) -> AudioPlayer:
         """Start audio playback, return a player object."""
 
     @abstractmethod

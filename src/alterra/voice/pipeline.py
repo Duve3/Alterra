@@ -3,30 +3,28 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
-from typing import Callable, Optional
 
-from .core import (
-    AudioBackend,
-    AudioChunk,
-    AudioPlayer,
-    STTBackend,
-    TTSBackend,
-    TranscriptionResult,
-    VADBackend,
-    VADResult,
-    WakeWordBackend,
-    WakeWordResult,
-)
 from .backends import (
     MockAudioBackend,
     MockSTTBackend,
     MockTTSBackend,
     MockVADBackend,
     MockWakeWordBackend,
+)
+from .core import (
+    AudioBackend,
+    AudioChunk,
+    AudioPlayer,
+    STTBackend,
+    TranscriptionResult,
+    TTSBackend,
+    VADBackend,
+    WakeWordBackend,
+    WakeWordResult,
 )
 
 
@@ -68,16 +66,16 @@ class VoicePipeline:
     def __init__(
         self,
         audio_backend: AudioBackend,
-        wake_word: Optional[WakeWordBackend] = None,
-        vad: Optional[VADBackend] = None,
-        stt: Optional[STTBackend] = None,
-        tts: Optional[TTSBackend] = None,
-        config: Optional[VoiceConfig] = None,
-        on_transcription: Optional[Callable[[TranscriptionResult], None]] = None,
-        on_wake_word: Optional[Callable[[WakeWordResult], None]] = None,
-        on_speech_start: Optional[Callable[[], None]] = None,
-        on_speech_end: Optional[Callable[[], None]] = None,
-        on_error: Optional[Callable[[Exception], None]] = None,
+        wake_word: WakeWordBackend | None = None,
+        vad: VADBackend | None = None,
+        stt: STTBackend | None = None,
+        tts: TTSBackend | None = None,
+        config: VoiceConfig | None = None,
+        on_transcription: Callable[[TranscriptionResult], None] | None = None,
+        on_wake_word: Callable[[WakeWordResult], None] | None = None,
+        on_speech_start: Callable[[], None] | None = None,
+        on_speech_end: Callable[[], None] | None = None,
+        on_error: Callable[[Exception], None] | None = None,
     ) -> None:
         self._audio = audio_backend
         self._wake_word = wake_word
@@ -97,9 +95,9 @@ class VoicePipeline:
 
         # Internal state
         self._speech_buffer: list[AudioChunk] = []
-        self._silence_start: Optional[float] = None
-        self._speech_start_time: Optional[float] = None
-        self._player: Optional[AudioPlayer] = None
+        self._silence_start: float | None = None
+        self._speech_start_time: float | None = None
+        self._player: AudioPlayer | None = None
         self._tasks: list[asyncio.Task] = []
 
     @property
@@ -170,7 +168,7 @@ class VoicePipeline:
                 await self._process_chunk(chunk)
         except asyncio.CancelledError:
             raise
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             if self._on_error:
                 self._on_error(e)
 
@@ -241,14 +239,14 @@ class VoicePipeline:
                 result = await self._stt.transcribe(audio_data, sample_rate, channels)
                 if result.text and self._on_transcription:
                     self._on_transcription(result)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 if self._on_error:
                     self._on_error(e)
 
         # Return to listening state
         self._state = VoiceState.LISTENING_WAKE if self._wake_word else VoiceState.LISTENING_SPEECH
 
-    async def speak(self, text: str, voice: Optional[str] = None) -> None:
+    async def speak(self, text: str, voice: str | None = None) -> None:
         """Synthesize and play text."""
         if not self._tts:
             raise RuntimeError("TTS backend not configured")

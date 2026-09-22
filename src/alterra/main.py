@@ -32,8 +32,8 @@ from .tools.builtin import (
 )
 from .tools.dispatcher import ToolDispatcher
 from .tools.registry import ToolRegistry
+from .voice.backends import FasterWhisperSTT, OpenWakeWord, PiperTTS, SileroVAD, SoundDeviceBackend
 from .voice.pipeline import VoicePipeline
-from .voice.backends import SileroVAD, PiperTTS, OpenWakeWord, SoundDeviceBackend, FasterWhisperSTT
 
 
 class ConsoleConfirmationHandler:

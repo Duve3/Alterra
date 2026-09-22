@@ -5,16 +5,14 @@ from __future__ import annotations
 import asyncio
 import struct
 from collections.abc import AsyncIterator
-from datetime import UTC, datetime
-from typing import Optional
 
 from ..core import (
     AudioBackend,
     AudioChunk,
     AudioPlayer,
     STTBackend,
-    TTSBackend,
     TranscriptionResult,
+    TTSBackend,
     VADBackend,
     VADResult,
     WakeWordBackend,
@@ -147,13 +145,13 @@ class MockTTSBackend(TTSBackend):
     async def stop(self) -> None:
         self._running = False
 
-    async def synthesize(self, text: str, voice: Optional[str] = None) -> bytes:
+    async def synthesize(self, text: str, voice: str | None = None) -> bytes:
         # Generate silence proportional to text length
         duration = len(text) * 0.05  # ~50ms per character
         samples = int(duration * self.sample_rate)
         return b"\x00\x00" * samples  # 16-bit silence
 
-    def synthesize_stream(self, text: str, voice: Optional[str] = None) -> AsyncIterator[bytes]:
+    def synthesize_stream(self, text: str, voice: str | None = None) -> AsyncIterator[bytes]:
         async def _gen():
             audio = await self.synthesize(text, voice)
             # Yield in chunks
@@ -175,7 +173,6 @@ class MockAudioPlayer(AudioPlayer):
         if self._stopped:
             return
         # In real implementation, this would queue audio for playback
-        pass
 
     async def flush(self) -> None:
         pass
@@ -189,7 +186,7 @@ class MockAudioBackend(AudioBackend):
 
     def __init__(self) -> None:
         self._running = False
-        self._capture_task: Optional[asyncio.Task] = None
+        self._capture_task: asyncio.Task | None = None
 
     @property
     def name(self) -> str:

@@ -13,15 +13,15 @@ from .mock import (
 from .real import FasterWhisperSTT, OpenWakeWord, PiperTTS, SileroVAD, SoundDeviceBackend
 
 __all__ = [
-    "MockWakeWordBackend",
-    "MockVADBackend",
-    "MockSTTBackend",
-    "MockTTSBackend",
+    "FasterWhisperSTT",
     "MockAudioBackend",
     "MockAudioPlayer",
-    "FasterWhisperSTT",
+    "MockSTTBackend",
+    "MockTTSBackend",
+    "MockVADBackend",
+    "MockWakeWordBackend",
+    "OpenWakeWord",
     "PiperTTS",
     "SileroVAD",
-    "OpenWakeWord",
     "SoundDeviceBackend",
 ]

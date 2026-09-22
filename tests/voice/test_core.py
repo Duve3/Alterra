@@ -1,6 +1,6 @@
 """Tests for voice core types."""
 
-from alterra.voice.core import AudioChunk, TranscriptionResult, WakeWordResult, VADResult
+from alterra.voice.core import AudioChunk, TranscriptionResult, VADResult, WakeWordResult
 
 
 def test_audio_chunk_creation() -> None:
