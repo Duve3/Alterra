@@ -246,12 +246,18 @@ class VoicePipeline:
         # Return to listening state
         self._state = VoiceState.LISTENING_WAKE if self._wake_word else VoiceState.LISTENING_SPEECH
 
+    async def _ensure_tts_audio(self) -> None:
+        """Ensure TTS and audio backends are started for speak-only operations."""
+        if self._tts:
+            await self._tts.start()  # type: ignore[attr-defined]
+
     async def speak(self, text: str, voice: str | None = None) -> None:
-        """Synthesize and play text."""
+        """Synthesize and play text. Works without full pipeline running."""
         if not self._tts:
             raise RuntimeError("TTS backend not configured")
-        if not self._running:
-            raise RuntimeError("Pipeline not running")
+
+        # Ensure TTS and audio are ready
+        await self._ensure_tts_audio()
 
         self._state = VoiceState.SPEAKING
 
@@ -263,7 +269,7 @@ class VoicePipeline:
             # Write audio in chunks
             chunk_size = 4096
             for i in range(0, len(audio), chunk_size):
-                if not self._running:
+                if self._player is None:
                     break
                 chunk = AudioChunk(
                     data=audio[i : i + chunk_size],
@@ -272,7 +278,8 @@ class VoicePipeline:
                 )
                 await self._player.write(chunk)
 
-            await self._player.flush()
+            if self._player:
+                await self._player.flush()
         finally:
             self._state = (
                 VoiceState.LISTENING_WAKE if self._wake_word else VoiceState.LISTENING_SPEECH

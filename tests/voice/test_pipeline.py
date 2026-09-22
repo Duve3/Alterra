@@ -265,13 +265,15 @@ async def test_pipeline_interrupt(pipeline: VoicePipeline) -> None:
     assert pipeline.state == VoiceState.LISTENING_WAKE
 
 
-async def test_pipeline_speak_not_running() -> None:
-    """Speak should raise error when pipeline not running."""
+async def test_pipeline_speak_without_pipeline_running() -> None:
+    """Speak should work without full pipeline running (only needs TTS + audio)."""
     audio = MockAudioBackend()
     tts = MockTTSBackend()
     pipeline = VoicePipeline(audio_backend=audio, tts=tts)
-    with pytest.raises(RuntimeError, match="Pipeline not running"):
-        await pipeline.speak("Hello")
+    # Should not raise - speak works without pipeline running
+    await pipeline.speak("Hello")
+    # Returns to LISTENING_SPEECH since no wake word configured
+    assert pipeline.state == VoiceState.LISTENING_SPEECH
 
 
 async def test_pipeline_speak_no_tts() -> None:

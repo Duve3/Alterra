@@ -68,8 +68,6 @@ class VoiceSpeakTool(Tool):
 
     async def execute(self, arguments: BaseModel, context: ToolContext) -> dict:
         args = VoiceSpeakArguments.model_validate(arguments.model_dump())
-        if not self._pipeline.is_running:
-            await self._pipeline.start()
         await self._pipeline.speak(args.text, args.voice)
         return {"status": "spoken", "text": args.text}
 
