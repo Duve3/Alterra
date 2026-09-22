@@ -1,4 +1,4 @@
-"""Real voice backends using faster-whisper, Piper, Silero VAD, openWakeWord."""
+"""Real voice backends using faster-whisper, Piper, Silero VAD, openWakeWord, and sounddevice."""
 
 from __future__ import annotations
 
@@ -367,8 +367,8 @@ class OpenWakeWord(WakeWordBackend):
         )
 
 
-class PyAudioBackend(AudioBackend):
-    """PyAudio-based audio I/O backend."""
+class SoundDeviceBackend(AudioBackend):
+    """sounddevice-based audio I/O backend."""
 
     def __init__(
         self,
@@ -377,89 +377,123 @@ class PyAudioBackend(AudioBackend):
     ) -> None:
         self._input_device_index = input_device_index
         self._output_device_index = output_device_index
-        self._pyaudio = None
         self._input_stream = None
         self._output_stream = None
         self._running = False
+        self._capture_queue: asyncio.Queue[AudioChunk] = asyncio.Queue()
 
     @property
     def name(self) -> str:
-        return "pyaudio"
+        return "sounddevice"
 
     async def start_capture(self, sample_rate: int, channels: int) -> AsyncIterator[AudioChunk]:
-        import pyaudio
+        import sounddevice as sd
 
         if self._running:
             return
 
-        self._pyaudio = pyaudio.PyAudio()
-        self._input_stream = self._pyaudio.open(
-            format=pyaudio.paInt16,
-            channels=channels,
-            rate=sample_rate,
-            input=True,
-            input_device_index=self._input_device_index,
-            frames_per_buffer=int(sample_rate * 0.1),  # 100ms chunks
-        )
+        # Configure sounddevice
+        sd.default.samplerate = sample_rate
+        sd.default.channels = channels
+        if self._input_device_index is not None:
+            sd.default.device = (self._input_device_index, sd.default.device[1])
+
         self._running = True
 
-        try:
-            loop = asyncio.get_event_loop()
-            while self._running:
-                data = await loop.run_in_executor(
-                    None,
-                    lambda: self._input_stream.read(
-                        int(sample_rate * 0.1), exception_on_overflow=False
-                    ),
-                )
-                yield AudioChunk(
-                    data=data,
+        def callback(indata, frames, time, status):
+            """sounddevice callback - runs in separate thread."""
+            if status:
+                pass  # Could log status
+            if self._running:
+                # Copy data to avoid buffer reuse issues
+                audio_data = indata.copy()
+                chunk = AudioChunk(
+                    data=audio_data.tobytes(),
                     sample_rate=sample_rate,
                     channels=channels,
                 )
+                # Put in queue (non-blocking)
+                try:
+                    self._capture_queue.put_nowait(chunk)
+                except asyncio.QueueFull:
+                    pass  # Drop chunk if queue full
+
+        # Start input stream
+        self._input_stream = sd.InputStream(
+            samplerate=sample_rate,
+            channels=channels,
+            dtype="int16",
+            callback=callback,
+            blocksize=int(sample_rate * 0.1),  # 100ms chunks
+            device=self._input_device_index,
+        )
+        self._input_stream.start()
+        self._running = True
+
+        try:
+            while self._running:
+                try:
+                    chunk = await asyncio.wait_for(self._capture_queue.get(), timeout=0.1)
+                    yield chunk
+                except asyncio.TimeoutError:
+                    continue
         finally:
             if self._input_stream:
-                self._input_stream.stop_stream()
+                self._input_stream.stop()
                 self._input_stream.close()
                 self._input_stream = None
             self._running = False
+            # Clear queue
+            while not self._capture_queue.empty():
+                try:
+                    self._capture_queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    break
 
     async def start_playback(self, sample_rate: int, channels: int) -> AudioPlayer:
-        import pyaudio
+        import sounddevice as sd
 
-        if self._pyaudio is None:
-            self._pyaudio = pyaudio.PyAudio()
+        if self._output_stream is not None:
+            self._output_stream.stop()
+            self._output_stream.close()
 
-        self._output_stream = self._pyaudio.open(
-            format=pyaudio.paInt16,
+        if self._output_device_index is not None:
+            sd.default.device = (sd.default.device[0], self._output_device_index)
+
+        self._output_stream = sd.OutputStream(
+            samplerate=sample_rate,
             channels=channels,
-            rate=sample_rate,
-            output=True,
-            output_device_index=self._output_device_index,
+            dtype="int16",
         )
+        self._output_stream.start()
 
-        return PyAudioPlayer(self._output_stream)
+        return SoundDevicePlayer(self._output_stream, sample_rate, channels)
 
     async def stop(self) -> None:
         self._running = False
         if self._input_stream:
-            self._input_stream.stop_stream()
+            self._input_stream.stop()
             self._input_stream.close()
             self._input_stream = None
         if self._output_stream:
-            self._output_stream.stop_stream()
+            self._output_stream.stop()
             self._output_stream.close()
             self._output_stream = None
-        if self._pyaudio:
-            self._pyaudio.terminate()
-            self._pyaudio = None
+        # Clear queue
+        while not self._capture_queue.empty():
+            try:
+                self._capture_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
 
 
-class PyAudioPlayer(AudioPlayer):
-    """PyAudio playback controller."""
+class SoundDevicePlayer(AudioPlayer):
+    """sounddevice playback controller."""
 
-    def __init__(self, stream) -> None:
+    def __init__(self, stream, sample_rate: int, channels: int) -> None:
         self._stream = stream
+        self._sample_rate = sample_rate
+        self._channels = channels
         self._stopped = False
 
     async def write(self, chunk: AudioChunk) -> None:
@@ -473,3 +507,7 @@ class PyAudioPlayer(AudioPlayer):
 
     async def stop(self) -> None:
         self._stopped = True
+        if self._stream:
+            self._stream.stop()
+            self._stream.close()
+            self._stream = None

@@ -307,11 +307,11 @@ async def create_default_pipeline(
             FasterWhisperSTT,
             OpenWakeWord,
             PiperTTS,
-            PyAudioBackend,
             SileroVAD,
+            SoundDeviceBackend,
         )
 
-        audio = PyAudioBackend()
+        audio = SoundDeviceBackend()
         wake_word = OpenWakeWord()
         vad = SileroVAD()
         stt = FasterWhisperSTT()

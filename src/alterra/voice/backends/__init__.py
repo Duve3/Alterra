@@ -10,7 +10,7 @@ from .mock import (
 )
 
 # Real backends are imported lazily to avoid hard dependencies
-# from .real import FasterWhisperSTT, PiperTTS, SileroVAD, OpenWakeWord, PyAudioBackend
+from .real import FasterWhisperSTT, OpenWakeWord, PiperTTS, SileroVAD, SoundDeviceBackend
 
 __all__ = [
     "MockWakeWordBackend",
@@ -19,4 +19,9 @@ __all__ = [
     "MockTTSBackend",
     "MockAudioBackend",
     "MockAudioPlayer",
+    "FasterWhisperSTT",
+    "PiperTTS",
+    "SileroVAD",
+    "OpenWakeWord",
+    "SoundDeviceBackend",
 ]

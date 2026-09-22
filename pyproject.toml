@@ -10,6 +10,8 @@ requires-python = ">=3.14"
 dependencies = [
     "httpx>=0.28.1",
     "mcp[cli]>=2.2.0",
+    "numpy>=2.5.3",
+    "piper>=0.15.1",
     "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
     "structlog>=26.1.0",
@@ -36,7 +38,7 @@ voice = [
     "onnxruntime>=1.16.0",
     "silero-vad>=5.0.0",
     "openwakeword>=0.3.0",
-    "pyaudio>=0.2.13",
+    "sounddevice>=0.5.0",
     "webrtcvad>=2.0.10",
 ]
 

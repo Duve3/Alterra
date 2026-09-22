@@ -33,13 +33,7 @@ from .tools.builtin import (
 from .tools.dispatcher import ToolDispatcher
 from .tools.registry import ToolRegistry
 from .voice.pipeline import VoicePipeline
-from .voice.backends import (
-    MockAudioBackend,
-    MockSTTBackend,
-    MockTTSBackend,
-    MockVADBackend,
-    MockWakeWordBackend,
-)
+from .voice.backends import SileroVAD, PiperTTS, OpenWakeWord, SoundDeviceBackend, FasterWhisperSTT
 
 
 class ConsoleConfirmationHandler:
@@ -72,11 +66,11 @@ def build_application(
     scheduler = Scheduler(task_store, _tool_executor)
 
     # Create voice pipeline
-    audio = MockAudioBackend()
-    wake_word = MockWakeWordBackend()
-    vad = MockVADBackend()
-    stt = MockSTTBackend()
-    tts = MockTTSBackend()
+    audio = SoundDeviceBackend()
+    wake_word = OpenWakeWord()
+    vad = SileroVAD()
+    stt = FasterWhisperSTT()
+    tts = PiperTTS()
     voice_pipeline = VoicePipeline(
         audio_backend=audio,
         wake_word=wake_word,
