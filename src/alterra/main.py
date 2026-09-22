@@ -32,7 +32,18 @@ from .tools.builtin import (
 )
 from .tools.dispatcher import ToolDispatcher
 from .tools.registry import ToolRegistry
-from .voice.backends import FasterWhisperSTT, OpenWakeWord, PiperTTS, SileroVAD, SoundDeviceBackend
+from .voice.backends import (
+    FasterWhisperSTT,
+    MockAudioBackend,
+    MockSTTBackend,
+    MockTTSBackend,
+    MockVADBackend,
+    MockWakeWordBackend,
+    OpenWakeWord,
+    PiperTTS,
+    SileroVAD,
+    SoundDeviceBackend,
+)
 from .voice.pipeline import VoicePipeline
 
 
@@ -66,11 +77,25 @@ def build_application(
     scheduler = Scheduler(task_store, _tool_executor)
 
     # Create voice pipeline
-    audio = SoundDeviceBackend()
-    wake_word = OpenWakeWord()
-    vad = SileroVAD()
-    stt = FasterWhisperSTT()
-    tts = PiperTTS()
+    # Use mock backends by default since real ones require model downloads
+    # Set ALTERRA_USE_REAL_VOICE=1 to use real backends
+    import os
+
+    use_real_voice = os.environ.get("ALTERRA_USE_REAL_VOICE", "0") == "1"
+
+    if use_real_voice:
+        audio = SoundDeviceBackend()
+        wake_word = OpenWakeWord()
+        vad = SileroVAD()
+        stt = FasterWhisperSTT()
+        tts = PiperTTS()
+    else:
+        audio = MockAudioBackend()
+        wake_word = MockWakeWordBackend()
+        vad = MockVADBackend()
+        stt = MockSTTBackend()
+        tts = MockTTSBackend()
+
     voice_pipeline = VoicePipeline(
         audio_backend=audio,
         wake_word=wake_word,
