@@ -9,6 +9,9 @@ import wave
 from collections.abc import AsyncIterator
 from pathlib import Path
 
+from cryptography.hazmat.primitives.constant_time import bytes_eq
+from piper import PiperVoice, SynthesisConfig
+
 from ..core import (
     AudioBackend,
     AudioChunk,
@@ -128,14 +131,14 @@ class PiperTTS(TTSBackend):
 
     def __init__(
         self,
-        voice: str = "en_US-lessac-medium",
+        voice: str = "en_US-alterra",
         model_dir: str | None = None,
         use_cuda: bool = False,
     ) -> None:
         self._voice = voice
-        self._model_dir = Path(model_dir) if model_dir else None
+        self._model_dir = Path(model_dir) if model_dir else Path("./models/tts/piper/")
         self._use_cuda = use_cuda
-        self._piper = None
+        self._piper: None | PiperVoice = None
         self._running = False
 
     @property
@@ -163,16 +166,15 @@ class PiperTTS(TTSBackend):
     async def start(self) -> None:
         if self._running:
             return
-        from piper import PiperVoice
 
         loop = asyncio.get_event_loop()
         self._piper = await loop.run_in_executor(
             None,
             lambda: PiperVoice.load(
-                model_path=str(self._model_dir / f"{self._voice}.onnx")
+                model_path=str(self._model_dir / f"{self._voice}" / f"{self._voice}.onnx")
                 if self._model_dir
                 else self._voice,
-                config_path=str(self._model_dir / f"{self._voice}.onnx.json")
+                config_path=str(self._model_dir / f"{self._voice}" / f"{self._voice}.onnx.json")
                 if self._model_dir
                 else None,
                 use_cuda=self._use_cuda,
@@ -197,13 +199,18 @@ class PiperTTS(TTSBackend):
             temp_path = f.name
 
         try:
-            await asyncio.get_event_loop().run_in_executor(
+            iterableAudioChunk = await asyncio.get_event_loop().run_in_executor(
                 None,
-                lambda: self._piper.synthesize(text, output_file=temp_path),  # type: ignore[union-attr]
+                lambda: self._piper.synthesize(text=text),
             )
-            return await asyncio.get_event_loop().run_in_executor(
-                None, lambda: open(temp_path, "rb").read()
-            )
+
+            bytesRepresentation = []
+
+            for i in iterableAudioChunk:
+                bytesRepresentation.append(i.audio_int16_array)
+
+            return bytesRepresentation
+
         finally:
             try:
                 os.unlink(temp_path)

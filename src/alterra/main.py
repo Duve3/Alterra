@@ -81,7 +81,7 @@ def build_application(
     # Set ALTERRA_USE_REAL_VOICE=1 to use real backends
     import os
 
-    use_real_voice = os.environ.get("ALTERRA_USE_REAL_VOICE", "0") == "1"
+    use_real_voice = True
 
     if use_real_voice:
         audio = SoundDeviceBackend()
