@@ -1,52 +1,211 @@
 ﻿# Alterra
 
-Alterra is a modular personal AI assistant platform. Phase 3 provides a text-only,
-provider-neutral message → agent → policy → tool → result → agent loop.
+A modular personal AI assistant platform inspired by the ALTERRA computer from Subnautica.
 
-```powershell
-uv run alterra
+## Status: MVP
+
+The current implementation is a minimal viable product:
+
+- ✅ OpenRouter LLM integration (single provider)
+- ✅ CLI interface with conversation history
+- ✅ Tool infrastructure (registry, dispatcher, execution boundary)
+- ✅ In-memory session management
+- ✅ Standard logging (console + rotating file)
+- ✅ TOML + environment variable configuration
+
+**Explicitly out of scope for MVP:** voice, scheduler, events, persistent memory, demo tools, multi-provider, web UI.
+
+---
+
+## Quick Start
+
+### Prerequisites
+
+- Python 3.14+
+- [uv](https://docs.astral.sh/uv/) for dependency management
+- OpenRouter API key (get one at https://openrouter.ai/keys)
+
+### Installation
+
+```bash
+git clone https://github.com/yourusername/alterra.git
+cd alterra
+uv sync
 ```
 
-The default local profile works without credentials:
+### Configuration
 
-```text
-> What is 15 * 4?
-Alterra: 60
+```bash
+cp .env.example .env
+# Edit .env and add your OpenRouter API key
 ```
 
-See [the architecture guide](docs/architecture.md) for boundaries, configuration, and extension rules.
-
-## OpenRouter
-
-To use OpenRouter, place the following in `.env` (or set equivalent environment variables):
-
-```env
-ALTERRA_MODEL_PROVIDER=openrouter
-ALTERRA_OPENROUTER_API_KEY=your-openrouter-key
-ALTERRA_OPENROUTER_MODEL=openai/gpt-5
-# Optional attribution metadata
-ALTERRA_OPENROUTER_SITE_URL=https://example.com
-ALTERRA_OPENROUTER_APP_NAME=Alterra
+Required:
+```bash
+ALTERRA_OPENROUTER_API_KEY=sk-or-v1-...
 ```
 
-Alterra uses OpenRouter's Responses-compatible endpoint while keeping its model interface and
-tool protocol provider-neutral.
-
-## Policy and confirmation
-
-Tools declare a risk level and execution timeout. Before a tool runs, Alterra policy may deny it
-or request confirmation. The CLI accepts only `y` or `yes`; non-interactive hosts deny requested
-confirmations by default. Configure policy through JSON-compatible environment variables, such as:
-
-```env
-ALTERRA_POLICY_DENIED_TOOLS=["filesystem.delete"]
-ALTERRA_POLICY_CONFIRMATION_RISKS=["medium","high","critical"]
-ALTERRA_POLICY_RISK_OVERRIDES={"computer.open_application":"medium"}
+Optional (shown with defaults):
+```bash
+ALTERRA_MODEL=openrouter/auto
+ALTERRA_TEMPERATURE=0.7
+ALTERRA_MAX_TOKENS=2048
+ALTERRA_ALLOW_PROVIDER_FALLBACKS=false
+ALTERRA_LOG_LEVEL=INFO
+ALTERRA_MAX_TOOL_ROUNDS=8
 ```
 
-## Persistent memory
+You can also configure via `config/alterra.toml` (environment variables take precedence).
 
-The application composes a SQLite-backed memory service at `ALTERRA_DATABASE_PATH` (default:
-`data/alterra.db`). It is intentionally separate from sessions and does not automatically store
-conversation or model content. Call its explicit `create`, `get`, `search`, and `delete` API from
-a future controlled memory tool or trusted application workflow.
+### Run
+
+```bash
+uv run python -m alterra
+```
+
+```
+Alterra
+Connected to OpenRouter
+Model: openrouter/auto
+Type 'exit' or 'quit' to leave, 'clear' to reset conversation.
+
+> Hello Alterra.
+
+Alterra:
+Hello! How can I help you today?
+```
+
+Commands:
+- `exit` / `quit` — Leave
+- `clear` — Reset conversation history
+
+---
+
+## Project Structure
+
+```
+alterra/
+├── config/
+│   └── alterra.toml          # Application configuration
+├── docs/
+│   └── architecture.md       # Architecture documentation
+├── src/
+│   └── alterra/
+│       ├── __main__.py       # Entry point
+│       ├── app.py            # Composition root
+│       ├── cli.py            # CLI interface
+│       ├── logging_setup.py  # Standard logging config
+│       ├── core/             # Application orchestration
+│       │   ├── application.py
+│       │   ├── config.py
+│       │   ├── errors.py
+│       │   ├── messages.py
+│       │   └── session.py
+│       ├── agent/            # Model interaction
+│       │   ├── model.py
+│       │   ├── runtime.py
+│       │   └── providers/
+│       │       └── openrouter.py
+│       └── tools/            # Capability infrastructure
+│           ├── base.py
+│           ├── registry.py
+│           └── dispatcher.py
+├── tests/
+│   ├── agent/
+│   ├── core/
+│   └── tools/
+├── .env.example
+├── .gitignore
+├── pyproject.toml
+└── README.md
+```
+
+---
+
+## Architecture Highlights
+
+### Provider Isolation
+
+`agent/providers/openrouter.py` is the **only** place that imports `httpx` or knows about OpenRouter's API. The rest of the codebase uses the provider-neutral `Model` protocol:
+
+```python
+class Model(Protocol):
+    async def generate(self, messages: list[ConversationMessage], tools: list[dict]) -> AgentResponse: ...
+```
+
+Adding a new provider (Ollama, llama.cpp, etc.) means implementing this protocol — **no changes to core or agent runtime**.
+
+### Tool Execution Safety
+
+```
+Model requests tool
+       │
+       ▼
+Find registered tool
+       │
+       ▼
+Validate arguments (Pydantic)
+       │
+       ▼
+Enforce timeout (asyncio.timeout)
+       │
+       ▼
+Execute capability
+       │
+       ▼
+Return structured ToolResult
+```
+
+- Only registered tools execute
+- Arguments validated before execution
+- Timeouts enforced per-tool
+- Errors returned as `ToolResult(success=False)` — model sees them and can recover
+
+### Configuration Precedence
+
+1. Code defaults
+2. `config/alterra.toml`
+3. `.env` (prefix `ALTERRA_`)
+4. Explicit constructor args
+
+Missing required config (API key) → clear `ConfigurationError` at startup.
+
+---
+
+## Development
+
+### Running Tests
+
+```bash
+uv run pytest -v
+```
+
+### Linting
+
+```bash
+uv run ruff check src/
+uv run ruff check --fix src/  # auto-fix
+```
+
+### Adding a Real Capability
+
+When you need a real tool (not a demo):
+
+1. Create integration module (e.g., `src/alterra/integrations/computer.py`)
+2. Implement `Tool` subclass with Pydantic `arguments_model`
+3. Register in `app.py`:
+   ```python
+   from alterra.integrations.computer import OpenApplicationTool
+   registry.register(OpenApplicationTool())
+   ```
+4. Add tests in `tests/tools/test_computer_tools.py`
+
+No changes to `core/`, `agent/`, or `cli/` required.
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE) for details.
+
+Third-party dependencies retain their own licenses.
