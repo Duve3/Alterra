@@ -1,4 +1,4 @@
-"""Validated capability execution boundary. Policy and auditing can extend this point."""
+"""Validated capability execution boundary."""
 
 import asyncio
 
@@ -22,7 +22,7 @@ class ToolDispatcher:
 
         try:
             arguments = tool.arguments_model.model_validate(call.arguments)
-            async with asyncio.timeout(tool.metadata.timeout_seconds):
+            async with asyncio.timeout(tool.timeout_seconds):
                 data = await tool.execute(arguments, ToolContext(session_id=session_id))
             return ToolResult(tool_call_id=call.id, name=call.name, success=True, data=data)
         except TimeoutError:
@@ -30,7 +30,7 @@ class ToolDispatcher:
                 tool_call_id=call.id,
                 name=call.name,
                 success=False,
-                error=f"Tool timed out after {tool.metadata.timeout_seconds} seconds",
+                error=f"Tool timed out after {tool.timeout_seconds} seconds",
             )
         except (ToolError, ValidationError, ValueError) as error:
             return ToolResult(tool_call_id=call.id, name=call.name, success=False, error=str(error))

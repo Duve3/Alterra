@@ -22,7 +22,8 @@ class UserMessage(Message):
 
 class AssistantMessage(Message):
     role: Literal["assistant"] = "assistant"
-    content: str
+    content: str = ""
+    tool_calls: list[ToolCall] = Field(default_factory=list)
 
 
 class SystemMessage(Message):

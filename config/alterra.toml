@@ -1,0 +1,20 @@
+# Alterra Configuration
+# Copy to config/alterra.toml and adjust as needed
+# Environment variables (ALTERRA_*) take precedence over this file
+
+[application]
+name = "Alterra"
+environment = "development"
+
+[llm]
+# Model identifier on OpenRouter (e.g., "openrouter/auto", "anthropic/claude-3.5-sonnet", "openai/gpt-4o")
+model = "openrouter/auto"
+temperature = 0.7
+max_tokens = 2048
+# Disable provider fallbacks for reproducible behavior
+allow_provider_fallbacks = false
+
+[logging]
+level = "INFO"
+console = true
+file = true

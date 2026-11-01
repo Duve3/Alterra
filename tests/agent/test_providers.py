@@ -1,169 +1,14 @@
-import json
+"""Tests for the OpenRouter provider."""
 
+import json
 import pytest
 
+import httpx
+
 from alterra.agent.model import AgentResponse
-from alterra.agent.providers.local import LocalModel
-from alterra.agent.providers.openai import OpenAIResponsesModel
+from alterra.agent.providers.openrouter import OpenRouterModel
 from alterra.core.errors import AgentError
-from alterra.core.messages import SystemMessage, ToolResult, UserMessage
-
-
-@pytest.mark.parametrize(
-    ("message", "expected"),
-    [
-        (UserMessage(content="What time is it in America/Los_Angeles?"), "time.current"),
-        (UserMessage(content="calculate -2 + 3"), "calculator.evaluate"),
-        (UserMessage(content="unknown request"), None),
-        (SystemMessage(content="context"), None),
-        (UserMessage(content="Remember that I like coffee"), "memory.store"),
-        (UserMessage(content="What do I like?"), "memory.retrieve"),
-        (UserMessage(content="What do you know about me?"), "memory.retrieve"),
-        (UserMessage(content="Where do I work?"), "memory.retrieve"),
-    ],
-)
-async def test_local_model_routes_supported_and_fallback_messages(message, expected) -> None:
-    response = await LocalModel().generate([message], [])
-    assert (response.tool_calls[0].name if response.tool_calls else None) == expected
-
-
-async def test_local_model_formats_tool_results() -> None:
-    model = LocalModel()
-    failed = await model.generate(
-        [ToolResult(tool_call_id="1", name="x", success=False, error="no")], []
-    )
-    timed = await model.generate(
-        [ToolResult(tool_call_id="1", name="time.current", success=True, data={"iso": "now"})], []
-    )
-    generic = await model.generate(
-        [ToolResult(tool_call_id="1", name="x", success=True, data=3)], []
-    )
-    assert failed.message is not None
-    assert failed.message.content == "I couldn't complete that: no"
-    assert timed.message is not None
-    assert timed.message.content == "now"
-    assert generic.message is not None
-    assert generic.message.content == "3"
-
-
-async def test_local_model_formats_memory_retrieve_results() -> None:
-    model = LocalModel()
-    empty = await model.generate(
-        [
-            ToolResult(
-                tool_call_id="1",
-                name="memory.retrieve",
-                success=True,
-                data={"results": [], "count": 0},
-            )
-        ],
-        [],
-    )
-    single = await model.generate(
-        [
-            ToolResult(
-                tool_call_id="1",
-                name="memory.retrieve",
-                success=True,
-                data={"results": [{"content": "I like coffee"}], "count": 1},
-            )
-        ],
-        [],
-    )
-    multiple = await model.generate(
-        [
-            ToolResult(
-                tool_call_id="1",
-                name="memory.retrieve",
-                success=True,
-                data={"results": [{"content": "a"}, {"content": "b"}], "count": 2},
-            )
-        ],
-        [],
-    )
-    assert empty.message is not None
-    assert "couldn't find" in empty.message.content.lower()
-    assert single.message is not None
-    assert single.message.content == "I like coffee"
-    assert multiple.message is not None
-    assert "Here are the matching memories" in multiple.message.content
-    assert "- a" in multiple.message.content
-    assert "- b" in multiple.message.content
-
-
-async def test_local_model_formats_memory_store_and_delete_results() -> None:
-    model = LocalModel()
-    store = await model.generate(
-        [ToolResult(tool_call_id="1", name="memory.store", success=True, data={})], []
-    )
-    delete = await model.generate(
-        [ToolResult(tool_call_id="1", name="memory.delete", success=True, data={})], []
-    )
-    assert store.message is not None
-    assert "remember" in store.message.content.lower()
-    assert delete.message is not None
-    assert "deleted" in delete.message.content.lower()
-
-
-async def test_local_model_routes_forget_memory() -> None:
-    response = await LocalModel().generate([UserMessage(content="Forget that memory")], [])
-    assert response.message is not None
-    assert "memory ID" in response.message.content
-
-
-async def test_local_model_formats_voice_tool_results() -> None:
-    model = LocalModel()
-    status = await model.generate(
-        [
-            ToolResult(
-                tool_call_id="1",
-                name="voice.status",
-                success=True,
-                data={"running": True, "state": "listening"},
-            )
-        ],
-        [],
-    )
-    assert status.message is not None
-    assert "running" in status.message.content.lower()
-
-    speak = await model.generate(
-        [ToolResult(tool_call_id="1", name="voice.speak", success=True, data={})], []
-    )
-    assert speak.message is not None
-    assert "done speaking" in speak.message.content.lower()
-
-    listen = await model.generate(
-        [ToolResult(tool_call_id="1", name="voice.listen", success=True, data={})], []
-    )
-    assert listen.message is not None
-    assert "listening" in listen.message.content.lower()
-
-    stop = await model.generate(
-        [ToolResult(tool_call_id="1", name="voice.stop", success=True, data={})], []
-    )
-    assert stop.message is not None
-    assert "stopped" in stop.message.content.lower()
-
-
-@pytest.mark.parametrize(
-    ("message", "expected_tool"),
-    [
-        (UserMessage(content="voice status"), "voice.status"),
-        (UserMessage(content="voice speak hello world"), "voice.speak"),
-        (UserMessage(content="voice listen for 5 seconds"), "voice.listen"),
-        (UserMessage(content="voice stop"), "voice.stop"),
-    ],
-)
-async def test_local_model_routes_voice_tools(message, expected_tool) -> None:
-    response = await LocalModel().generate([message], [])
-    assert response.tool_calls is not None
-    assert response.tool_calls[0].name == expected_tool
-
-
-def test_agent_response_rejects_invalid_output_shapes() -> None:
-    with pytest.raises(ValueError):
-        AgentResponse()
+from alterra.core.messages import AssistantMessage, ToolCall, ToolResult, UserMessage
 
 
 class FakeResponse:
@@ -177,7 +22,7 @@ class FakeResponse:
 
 
 class FakeClient:
-    response = FakeResponse({"output": []})
+    response = FakeResponse({"choices": [{"message": {"content": "hello"}}]})
     captured = None
 
     def __init__(self, **kwargs):
@@ -193,41 +38,47 @@ class FakeClient:
         type(self).captured = (args, kwargs)
         return type(self).response
 
+    async def aclose(self):
+        pass
 
-async def test_openai_adapter_translates_function_calls_and_text(monkeypatch) -> None:
-    monkeypatch.setattr("alterra.agent.providers.openai.httpx.AsyncClient", FakeClient)
-    model = OpenAIResponsesModel(api_key="key", model="model")
-    FakeClient.response = FakeResponse(
-        {
-            "output": [
-                {
-                    "type": "function_call",
-                    "call_id": "c",
-                    "name": "echo_repeat",
-                    "arguments": json.dumps({"text": "hi"}),
-                }
-            ]
-        }
-    )
+
+def make_model(**kwargs) -> OpenRouterModel:
+    """Create OpenRouterModel with fake client for testing."""
+    return OpenRouterModel(api_key="key", model="test-model", client=FakeClient(), **kwargs)
+
+
+async def test_openrouter_adapter_translates_function_calls_and_text() -> None:
+    model = make_model()
+    FakeClient.response = FakeResponse({
+        "choices": [{
+            "message": {
+                "tool_calls": [{
+                    "id": "c",
+                    "function": {"name": "echo.repeat", "arguments": json.dumps({"text": "hi"})}
+                }]
+            }
+        }]
+    })
     call = await model.generate(
         [UserMessage(content="hi")],
         [{"name": "echo.repeat", "description": "e", "input_schema": {}}],
     )
-    FakeClient.response = FakeResponse(
-        {"output": [{"type": "message", "content": [{"type": "output_text", "text": "hello"}]}]}
-    )
+    FakeClient.response = FakeResponse({
+        "choices": [{"message": {"content": "hello"}}]
+    })
     text = await model.generate([UserMessage(content="hi")], [])
     assert call.tool_calls[0].name == "echo.repeat"
     assert text.message is not None
     assert text.message.content == "hello"
     assert FakeClient.captured is not None
-    assert FakeClient.captured[1]["json"]["tools"] == []
+    # Check provider config was sent
+    payload = FakeClient.captured[1]["json"]
+    assert payload["provider"]["allow_fallbacks"] is False
 
 
-async def test_openai_adapter_surfaces_errors_and_empty_messages(monkeypatch) -> None:
-    monkeypatch.setattr("alterra.agent.providers.openai.httpx.AsyncClient", FakeClient)
-    model = OpenAIResponsesModel(api_key="key", model="model")
-    FakeClient.response = FakeResponse({"output": []})
+async def test_openrouter_adapter_surfaces_errors_and_empty_messages() -> None:
+    model = make_model()
+    FakeClient.response = FakeResponse({"choices": [{"message": {}}]})
     result = await model.generate([UserMessage(content="hi")], [])
     assert result.message is not None
     assert result.message.content.startswith("I was unable")
@@ -236,11 +87,26 @@ async def test_openai_adapter_surfaces_errors_and_empty_messages(monkeypatch) ->
         await model.generate([UserMessage(content="hi")], [])
 
 
-async def test_openai_adapter_serializes_tool_results(monkeypatch) -> None:
-    monkeypatch.setattr("alterra.agent.providers.openai.httpx.AsyncClient", FakeClient)
-    FakeClient.response = FakeResponse({"output": []})
-    await OpenAIResponsesModel(api_key="key", model="model").generate(
+async def test_openrouter_adapter_serializes_tool_results() -> None:
+    model = make_model()
+    FakeClient.response = FakeResponse({"choices": [{"message": {"content": "ok"}}]})
+    await model.generate(
         [ToolResult(tool_call_id="call", name="echo.repeat", success=True, data="hi")], []
     )
     assert FakeClient.captured is not None
-    assert FakeClient.captured[1]["json"]["input"][0]["type"] == "function_call_output"
+    msg = FakeClient.captured[1]["json"]["messages"][0]
+    assert msg["role"] == "tool"
+    assert msg["tool_call_id"] == "call"
+
+
+async def test_openrouter_provider_fallbacks_config() -> None:
+    model = make_model(allow_provider_fallbacks=True)
+    FakeClient.response = FakeResponse({"choices": [{"message": {"content": "ok"}}]})
+    await model.generate([UserMessage(content="hi")], [])
+    payload = FakeClient.captured[1]["json"]
+    assert payload["provider"]["allow_fallbacks"] is True
+
+
+def test_agent_response_rejects_invalid_output_shapes() -> None:
+    with pytest.raises(ValueError):
+        AgentResponse()
