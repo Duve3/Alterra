@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 
 from .core.application import AlterraApplication
 from .core.messages import UserMessage
@@ -10,13 +11,22 @@ from .core.messages import UserMessage
 log = logging.getLogger(__name__)
 
 
+def _safe_print(text: str) -> None:
+    """Print text, handling Windows console encoding issues."""
+    try:
+        print(text)
+    except UnicodeEncodeError:
+        # Fallback: replace unencodable chars (e.g., emojis on cp1252)
+        print(text.encode(sys.stdout.encoding or "utf-8", errors="replace").decode(sys.stdout.encoding or "utf-8"))
+
+
 async def run_cli(application: AlterraApplication, model_name: str) -> None:
     """Run the interactive CLI loop."""
-    print("Alterra")
-    print("Connected to OpenRouter")
-    print(f"Model: {model_name}")
-    print("Type 'exit' or 'quit' to leave, 'clear' to reset conversation.")
-    print()
+    _safe_print("Alterra")
+    _safe_print("Connected to OpenRouter")
+    _safe_print(f"Model: {model_name}")
+    _safe_print("Type 'exit' or 'quit' to leave, 'clear' to reset conversation.")
+    _safe_print("")
 
     session_id = "cli"
 
@@ -25,7 +35,7 @@ async def run_cli(application: AlterraApplication, model_name: str) -> None:
             try:
                 text = input("> ").strip()
             except (EOFError, KeyboardInterrupt):
-                print()
+                _safe_print("")
                 break
 
             if not text:
@@ -37,7 +47,7 @@ async def run_cli(application: AlterraApplication, model_name: str) -> None:
             if text.lower() == "clear":
                 # Clear conversation history for this session
                 application._sessions.pop(session_id, None)
-                print("(conversation cleared)")
+                _safe_print("(conversation cleared)")
                 continue
 
             log.debug("User message: %s", text[:100])
@@ -45,12 +55,12 @@ async def run_cli(application: AlterraApplication, model_name: str) -> None:
                 reply = await application.handle_message(
                     UserMessage(content=text, session_id=session_id)
                 )
-                print(f"Alterra: {reply.content}")
+                _safe_print(f"Alterra: {reply.content}")
             except Exception as e:
                 log.exception("Error handling message")
-                print(f"Error: {e}")
+                _safe_print(f"Error: {e}")
 
-            print()
+            _safe_print("")
     except Exception:
         log.exception("CLI error")
         raise
