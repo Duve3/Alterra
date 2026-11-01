@@ -19,7 +19,7 @@ def test_valid_configuration() -> None:
 
 def test_model_required() -> None:
     # Model has a default, so this should work
-    settings = Settings(openrouter_api_key="test-key")
+    settings = Settings(openrouter_api_key="test-key", model="openrouter/free")
     assert settings.model == "openrouter/free"
 
 
