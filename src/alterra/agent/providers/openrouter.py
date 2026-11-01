@@ -16,6 +16,21 @@ from ...core.session import ConversationMessage
 from ..model import AgentResponse
 
 
+def _sanitize_tool_name(name: str) -> str:
+    """Convert tool name to API-compatible format (dots → underscores)."""
+    return name.replace(".", "_")
+
+
+def _desanitize_tool_name(name: str) -> str:
+    """Convert API tool name back to internal format (underscores → dots)."""
+    # Only convert first underscore after a namespace prefix
+    # e.g., "filesystem_read" -> "filesystem.read"
+    parts = name.split("_", 1)
+    if len(parts) == 2:
+        return f"{parts[0]}.{parts[1]}"
+    return name
+
+
 class OpenRouterModel:
     def __init__(
         self,
@@ -38,11 +53,18 @@ class OpenRouterModel:
         self._owns_client = client is None
 
     async def generate(self, messages: list[ConversationMessage], tools: list[dict]) -> AgentResponse:
+        # Sanitize tool names for API compatibility
+        sanitized_tools = []
+        for t in tools:
+            sanitized = t.copy()
+            sanitized["name"] = _sanitize_tool_name(t["name"])
+            sanitized_tools.append(sanitized)
+
         payload = {
             "model": self._model,
             "messages": [self._to_openai_message(m) for m in messages],
-            "tools": [self._to_openai_tool(t) for t in tools] if tools else None,
-            "tool_choice": "auto" if tools else None,
+            "tools": [self._to_openai_tool(t) for t in sanitized_tools] if sanitized_tools else None,
+            "tool_choice": "auto" if sanitized_tools else None,
             "temperature": self._temperature,
             "max_tokens": self._max_tokens,
             "provider": {"allow_fallbacks": self._allow_provider_fallbacks},
@@ -69,7 +91,7 @@ class OpenRouterModel:
             calls = [
                 ToolCall(
                     id=tc["id"],
-                    name=tc["function"]["name"],
+                    name=_desanitize_tool_name(tc["function"]["name"]),
                     arguments=json.loads(tc["function"]["arguments"]),
                 )
                 for tc in msg["tool_calls"]

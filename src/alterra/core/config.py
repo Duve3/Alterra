@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     )
 
     # LLM configuration
-    model: str = "openrouter/auto"
+    model: str = "meta-llama/llama-3.1-8b-instruct:free"
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     max_tokens: int = Field(default=2048, gt=0)
     allow_provider_fallbacks: bool = False

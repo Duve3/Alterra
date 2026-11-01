@@ -7,8 +7,8 @@ name = "Alterra"
 environment = "development"
 
 [llm]
-# Model identifier on OpenRouter (e.g., "openrouter/auto", "anthropic/claude-3.5-sonnet", "openai/gpt-4o")
-model = "openrouter/auto"
+# Model identifier on OpenRouter (e.g., "openrouter/free", "anthropic/claude-3.5-sonnet", "openai/gpt-4o")
+model = "openrouter/free"
 temperature = 0.7
 max_tokens = 2048
 # Disable provider fallbacks for reproducible behavior
