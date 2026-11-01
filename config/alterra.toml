@@ -14,6 +14,42 @@ max_tokens = 2048
 # Disable provider fallbacks for reproducible behavior
 allow_provider_fallbacks = false
 
+[voice]
+# Enable voice pipeline (default: false)
+enabled = false
+# Audio sample rate (default: 16000)
+sample_rate = 16000
+# Audio channels (default: 1)
+channels = 1
+# Input device index (default: system default)
+# input_device = 0
+# Output device index (default: system default)
+# output_device = 0
+# Wake word enabled (default: true)
+wake_word = true
+# Wake word model (default: "hey_jarvis")
+wake_word_model = "hey_jarvis"
+# Wake word threshold (default: 0.5)
+wake_word_threshold = 0.5
+# VAD threshold (default: 0.5)
+vad_threshold = 0.5
+# VAD silence timeout in seconds (default: 1.0)
+vad_silence_timeout = 1.0
+# Max speech duration in seconds (default: 30.0)
+max_speech_duration = 30.0
+# STT model size (default: "base")
+stt_model = "base"
+# STT device (default: "auto")
+stt_device = "auto"
+# STT compute type (default: "auto")
+stt_compute_type = "auto"
+# TTS voice (default: "en_US-lessac-medium")
+tts_voice = "en_US-lessac-medium"
+# TTS model directory (default: "./models/tts/piper/")
+# tts_model_dir = "./models/tts/piper/"
+# TTS use CUDA (default: false)
+tts_use_cuda = false
+
 [logging]
 level = "INFO"
 console = true
