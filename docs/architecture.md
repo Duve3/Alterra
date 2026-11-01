@@ -6,12 +6,13 @@ Alterra is a modular personal AI assistant platform. The MVP implements a minima
 
 - **OpenRouter** as the sole LLM provider
 - **CLI** as the primary interface
-- **Tool infrastructure** (registry, dispatcher, execution boundary) — empty in production
+- **Tool infrastructure** (registry, dispatcher, execution boundary)
+- **Filesystem integration** — `filesystem.read`, `filesystem.write`, `filesystem.list`, `filesystem.search`
 - **In-memory conversation history** per session
 - **Standard logging** (console + rotating file)
 - **TOML + env configuration**
 
-Everything else (voice, scheduler, events, persistent memory, demo tools, multi-provider) is explicitly out of scope for MVP.
+Everything else (voice, scheduler, events, persistent memory, demo tools, multi-provider) is explicitly out of scope for Stage 1.
 
 ---
 
@@ -360,6 +361,43 @@ uv run pytest -v
 # Lint
 uv run ruff check src/
 ```
+
+---
+
+## Filesystem Integration (Stage 2 — First Real Capability)
+
+The filesystem integration provides four tools for working with the local workspace:
+
+| Tool | Name | Purpose |
+| --- | --- | --- |
+| `ReadFileTool` | `filesystem.read` | Read text file contents |
+| `WriteFileTool` | `filesystem.write` | Write/create text files (with auto directory creation) |
+| `ListFilesTool` | `filesystem.list` | List directory contents (recursive, glob patterns) |
+| `SearchFilesTool` | `filesystem.search` | Grep-like text search across files |
+
+### Safety
+
+All paths are resolved relative to the workspace root (`Path.cwd()`). Operations outside the workspace raise `ValueError`. This prevents directory traversal attacks.
+
+### Implementation Pattern
+
+```python
+# integrations/filesystem/tools.py
+class ReadFileTool(Tool):
+    name = "filesystem.read"
+    description = "Read the contents of a text file"
+    arguments_model = ReadFileArgs  # Pydantic model with path, encoding
+    timeout_seconds = 10.0
+
+    async def execute(self, arguments: BaseModel, context: ToolContext) -> Any:
+        path = Path(arguments.path).resolve()
+        # ... safety checks ...
+        return {"path": str(path), "content": content, "size": len(content)}
+```
+
+- Lives in `src/alterra/integrations/filesystem/` — **not** `tools/builtin/`
+- Registered in `app.py` composition root
+- Tests in `tests/tools/test_filesystem_tools.py`
 
 ---
 

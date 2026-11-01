@@ -4,16 +4,17 @@ A modular personal AI assistant platform inspired by the ALTERRA computer from S
 
 ## Status: MVP
 
-The current implementation is a minimal viable product:
+The current implementation is Stage 2 (First Real Integration):
 
 - ✅ OpenRouter LLM integration (single provider)
 - ✅ CLI interface with conversation history
 - ✅ Tool infrastructure (registry, dispatcher, execution boundary)
+- ✅ **Filesystem integration** (`filesystem.read`, `write`, `list`, `search`)
 - ✅ In-memory session management
 - ✅ Standard logging (console + rotating file)
 - ✅ TOML + environment variable configuration
 
-**Explicitly out of scope for MVP:** voice, scheduler, events, persistent memory, demo tools, multi-provider, web UI.
+**Out of scope for Stage 2:** voice, scheduler, events, persistent memory, demo tools, multi-provider, web UI.
 
 ---
 
@@ -106,6 +107,10 @@ alterra/
 │       │   ├── runtime.py
 │       │   └── providers/
 │       │       └── openrouter.py
+│       ├── integrations/     # Real capabilities (Stage 2+)
+│       │   └── filesystem/   # File read/write/list/search
+│       │       ├── __init__.py
+│       │       └── tools.py
 │       └── tools/            # Capability infrastructure
 │           ├── base.py
 │           ├── registry.py

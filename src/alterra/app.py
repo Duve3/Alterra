@@ -12,6 +12,12 @@ from .cli import run_cli
 from .core.application import AlterraApplication
 from .core.config import Settings
 from .core.errors import ConfigurationError
+from .integrations.filesystem import (
+    ListFilesTool,
+    ReadFileTool,
+    SearchFilesTool,
+    WriteFileTool,
+)
 from .logging_setup import setup_logging
 from .tools.dispatcher import ToolDispatcher
 from .tools.registry import ToolRegistry
@@ -48,9 +54,16 @@ class Application:
             allow_provider_fallbacks=self._settings.allow_provider_fallbacks,
         )
 
-        # Create tool registry (empty for MVP - no demo tools)
+        # Create tool registry
         registry = ToolRegistry()
-        # Real tools will be registered here when implemented
+        # Register filesystem integration tools
+        for tool in (
+            ReadFileTool(),
+            WriteFileTool(),
+            ListFilesTool(),
+            SearchFilesTool(),
+        ):
+            registry.register(tool)
 
         # Create agent and application
         agent = AgentRuntime(self._model, registry)
