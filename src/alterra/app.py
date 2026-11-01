@@ -179,16 +179,22 @@ class Application:
         log.info("Alterra stopped.")
 
 
-async def main() -> None:
+def main() -> None:
     """Entry point."""
+    import asyncio
+
     settings = Settings()
     app = Application(settings)
-    try:
-        await app.initialize()
-        await app.run()
-    finally:
-        await app.shutdown()
+
+    async def _run() -> None:
+        try:
+            await app.initialize()
+            await app.run()
+        finally:
+            await app.shutdown()
+
+    asyncio.run(_run())
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
