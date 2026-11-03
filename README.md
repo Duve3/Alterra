@@ -29,7 +29,7 @@ The current implementation is Stage 2 (First Real Integration):
 ### Installation
 
 ```bash
-git clone https://github.com/yourusername/alterra.git
+git clone https://github.com/duve3/alterra.git
 cd alterra
 uv sync
 ```
